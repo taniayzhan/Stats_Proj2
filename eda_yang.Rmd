@@ -1,0 +1,247 @@
+---
+title: "eda_proj2"
+author: "YZ"
+date: "3/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+## Exploratory Analysis
+
+
+Observations:
+-Load in the bank-additional-full.csv dataset
+-A total of 21 columns
+
+
+```{r}
+library(data.table) #for %like% function
+library(xml2)
+library(purrr)
+library(lubridate)
+library(tictoc)
+library(kableExtra)
+library(gridExtra)
+library(readr)
+
+# import report data:
+bank <- read_delim("C:/Users/taniat470s/Desktop/SMU_course/DS6372/bank-additional/bank-additional-full.csv", delim = ";")
+```
+
+```{r EDA}
+
+# Yang EDA
+summary(bank)
+
+unique(bank$job)
+unique(bank$marital)
+unique(bank$education)
+unique(bank$default)
+unique(bank$housing)
+unique(bank$loan)
+unique(bank$contact)
+unique(bank$month)
+unique(bank$poutcome)
+unique(bank$y)
+
+```
+
+Observations:
+-Category variables include: job, marital, education, default, housing, loan, contact, month, day_of_week, poutcome, y
+-Continues variables include: age, duration, campaign, pdays, previous, emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed
+-No NAs within the dataset
+
+```{r}
+
+
+library(GGally)
+library(forcats)
+library(dplyr)
+
+#data dimensions
+dim(bank)
+
+#str(reports[,c(1:10,23)])
+
+# Print out a summary of the dataset
+bank %>% glimpse()
+```
+
+```{r}
+#Check NA values
+print(colSums(is.na(bank)))
+```
+
+
+Observations:
+-Histograms of the continous variables display vary distributions.
+-Age with a wide close-to-normal distribution leaning lightly to younger ages.
+-Duration, campaign, previous are strongly leaning to the left, and may need a log transformation.
+-Pdays just two values, should be considered to switch to a factor-based variable.
+-The rest variables are quite discrete from their distribution.
+
+
+```{r}
+ggplot(data=bank[!is.na(bank$age),], aes(x=age)) +
+        geom_histogram(fill="blue", binwidth = 1) + labs(title="Age Histogram", x="Age")
+
+ggplot(data=bank[!is.na(bank$duration),], aes(x=duration)) +
+        geom_histogram(fill="blue", binwidth = 10) + labs(title="Duration Histogram", x="Duration")
+
+ggplot(data=bank[!is.na(bank$campaign),], aes(x=campaign)) +
+        geom_histogram(fill="blue", binwidth = 1) + labs(title="Campaign Histogram", x="Campaign")
+
+ggplot(data=bank[!is.na(bank$pdays),], aes(x=pdays)) +
+        geom_histogram(fill="blue", binwidth = 10) + labs(title="Pdays Histogram", x="Pdays")
+
+ggplot(data=bank[!is.na(bank$previous),], aes(x=previous)) +
+        geom_histogram(fill="blue", binwidth = 1) + labs(title="Previous Histogram", x="Previous")
+
+ggplot(data=bank[!is.na(bank$emp.var.rate),], aes(x=emp.var.rate)) +
+        geom_histogram(fill="blue", binwidth = 0.1) + labs(title="Emp.var.rate Histogram", x="Emp.var.rate")
+
+ggplot(data=bank[!is.na(bank$cons.price.idx),], aes(x=cons.price.idx)) +
+        geom_histogram(fill="blue", binwidth = 0.1) + labs(title="Cons.price.idx Histogram", x="Cons.price.idx")
+
+ggplot(data=bank[!is.na(bank$cons.conf.idx),], aes(x=cons.conf.idx)) +
+        geom_histogram(fill="blue", binwidth = 0.1) + labs(title="Cons.conf.idx Histogram", x="Cons.conf.idx")
+
+ggplot(data=bank[!is.na(bank$euribor3m),], aes(x=euribor3m)) +
+        geom_histogram(fill="blue", binwidth = 0.1) + labs(title="Euribor3m Histogram", x="Euribor3m")
+
+ggplot(data=bank[!is.na(bank$nr.employed),], aes(x=nr.employed)) +
+        geom_histogram(fill="blue", binwidth = 10) + labs(title="Nr.employed Histogram", x="Nr.employed")
+
+```
+
+
+Observations:
+-Continuous variables are plotted by contrasting y, some show obvious differences some don't.
+-Some variables the showed differences: Duration, Emp.var.rate, Cons.price,idx, Ons.conf.idx, Euribor3m, Nr.employed 
+-Some variables don't show obvious differences:Age, Campaign, Previous
+
+
+```{r}
+g1<- bank %>% ggplot(aes(x=age, fill=y)) + geom_density(alpha = 0.7) + labs(title="Age Distribution colored by Term Deposit") 
+
+g2<- bank %>% ggplot(aes(x=log(duration), fill=y)) + geom_density(alpha = 0.7) + labs(title="Duration Distribution colored by Term Deposit") 
+
+g3<- bank %>% ggplot(aes(x=log(campaign), fill=y)) + geom_density(alpha = 0.7) + labs(title="Campaign Distribution colored by Term Deposit") 
+
+g4<- bank %>% ggplot(aes(x=previous, fill=y)) + geom_density(alpha = 0.7) + labs(title="Previous Distribution colored by Term Deposit") 
+
+g5<- bank %>% ggplot(aes(x=emp.var.rate, fill=y)) + geom_density(alpha = 0.7) + labs(title="Emp.var.rate Distribution colored by Term Deposit") 
+
+g6<- bank %>% ggplot(aes(x=cons.price.idx, fill=y)) + geom_density(alpha = 0.7) + labs(title="Cons.price.idx Distribution colored by Term Deposit") 
+
+g7<- bank %>% ggplot(aes(x=cons.conf.idx, fill=y)) + geom_density(alpha = 0.7) + labs(title="Ons.conf.idx Distribution colored by Term Deposit") 
+
+g8<- bank %>% ggplot(aes(x=euribor3m, fill=y)) + geom_density(alpha = 0.7) + labs(title="Euribor3m Distribution colored by Term Deposit") 
+
+g9<- bank %>% ggplot(aes(x=nr.employed, fill=y)) + geom_density(alpha = 0.7) + labs(title="Nr.employed Distribution colored by Term Deposit") 
+
+grid.arrange(g1,g2,g3,g4,g5,g6,g7,g8,g9,ncol = 3, nrow = 3)
+
+```
+
+Observations:
+-We don't observe strong linear relationship by cross-plot all continuous variables.
+-We observed some seperation in cross-plot colored by variable y.
+
+```{r}
+bank_con <- bank %>% dplyr::select(age, duration,campaign,pdays,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed) 
+pairs(bank_con)
+
+table(bank$y)
+
+bank_cony <- bank %>% dplyr::select(age, duration,campaign,pdays,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed,y) 
+
+bank_cony$y <- factor(bank_cony$y)
+
+pairs(bank_cony[,-11], col=bank_cony$y)
+```
+
+Observations:
+-Crossplots of some continuous variables to identify the seperation by variable y. Age vs Duration shows seperation in duration. Campaign vs Duration also shows seperation in duration.
+-Other crossplots doesn't show obvious seperation by variable y.
+
+```{r}
+bank %>% dplyr::select(age, duration,y) %>%
+ggplot(aes(x=age, y=log(duration)))+ geom_point(aes(colour = factor(y))) + labs(title="Age vs  Duration", x="age",y="duration") 
+
+bank %>% dplyr::select(duration,campaign,y) %>%
+ggplot(aes(x=log(duration), y=log(campaign)))+ geom_point(aes(colour = factor(y))) + labs(title="Duration vs  Campaign", x="duration",y="campaign") 
+
+bank %>% dplyr::select(age, previous,y) %>%
+ggplot(aes(x=age, y=log(previous)))+ geom_point(aes(colour = factor(y))) + labs(title="Age vs  Previous", x="age",y="previous") 
+
+bank %>% dplyr::select(emp.var.rate, cons.price.idx,y) %>%
+ggplot(aes(x=emp.var.rate, y=cons.price.idx))+ geom_point(aes(colour = factor(y))) + labs(title="emp.var.rate vs  cons.price.idx", x="emp.var.rate",y="cons.price.idx") 
+
+bank %>% dplyr::select(cons.conf.idx, cons.price.idx,y) %>%
+ggplot(aes(x=cons.conf.idx, y=cons.price.idx))+ geom_point(aes(colour = factor(y))) + labs(title="cons.conf.idx vs  cons.price.idx", x="cons.conf.idx",y="cons.price.idx") 
+
+```
+
+Observations:
+-We did pca on the continous data group. Good seperation on especially PC2.
+-PC1 is a combination of emp.var.rate,cons.price.idx,euribor3m,nr.employed.
+-PC2 is a combination of pdays and previous.
+
+```{r}
+pc.bc<-prcomp(bank_con,scale.=TRUE)
+pc.bc.scores<-pc.bc$x
+
+#Adding the response column to the PC's data frame
+pc.bc.scores<-data.frame(pc.bc.scores)
+pc.bc.scores$y<-bank$y
+
+#Use ggplot2 to plot the first few pc's
+library(ggplot2)
+ggplot(data = pc.bc.scores, aes(x = PC1, y = PC2)) +
+  geom_point(aes(col=y), size=1)+
+  ggtitle("PCA of Bank Dataset PC1 and PC2")
+
+ggplot(data = pc.bc.scores, aes(x = PC2, y = PC3)) +
+  geom_point(aes(col=y), size=1)+
+  ggtitle("PCA of Bank Dataset PC2 and PC3")
+
+pc.bc$rotation
+```
+
+Observations:
+-Because pdays is not a typical continous feature, we did pca on the continous data group excluding this variable. Good seperation on PC2 and PC3
+-PC2 is a combination of age and cons.conf.idx.
+-PC3 is a combination of duration and campaign.
+
+```{r}
+bank_con2 <- bank %>% dplyr::select(age, duration,campaign,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed) 
+
+pc.bc2<-prcomp(bank_con2,scale.=TRUE)
+pc.bc2.scores<-pc.bc2$x
+
+#Adding the response column to the PC's data frame
+pc.bc2.scores<-data.frame(pc.bc2.scores)
+pc.bc2.scores$y<-bank$y
+
+#Use ggplot2 to plot the first few pc's
+library(ggplot2)
+ggplot(data = pc.bc2.scores, aes(x = PC1, y = PC2)) +
+  geom_point(aes(col=y), size=1)+
+  ggtitle("PCA of Bank Dataset PC1 and PC2")
+
+ggplot(data = pc.bc2.scores, aes(x = PC2, y = PC3)) +
+  geom_point(aes(col=y), size=1)+
+  ggtitle("PCA of Bank Dataset PC2 and PC3")
+
+pc.bc2$rotation
+```
