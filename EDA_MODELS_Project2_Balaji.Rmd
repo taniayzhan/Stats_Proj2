@@ -1,0 +1,672 @@
+---
+title: "MSDS6372_project2"
+author: "Balaji Avvaru"
+date: "3/11/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+# Libraries
+```{r }
+library(caret)
+library(mlr)
+library(gmodels)
+library(mosaic)
+library(ggmosaic)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(SDMTools)
+library(readr)
+library(digest)
+library(ISLR)
+library(car) 
+library(leaps)
+library( Matrix)
+library(foreach)
+library(glmnet)
+library(VIM)
+library(mice)
+library(corrgram)
+library(car)
+library(tidyverse)
+library(limma)
+library(gridExtra)
+library(MASS)
+library(mvtnorm)
+library(class)
+library(caret)
+library(e1071)
+```
+
+## Load the data
+
+```{r }
+setwd("C:/Users/BelajiAvvaru/Desktop/Docs/SMU/MSDS 6372/Project 2/")
+#bankdata<- read.csv(file.choose())
+bankdata<-read.csv("bank-additional-full.csv",header=T, sep=";")
+head(bankdata)
+summary(bankdata$y)
+```
+
+## number of rows, number of columns, summary and structure of bank data
+
+```{r }
+nrow(bankdata)
+ncol(bankdata)
+summary(bankdata)
+str(bankdata)
+```
+
+# missing data
+
+```{r }
+#Display missing-data patterns
+md.pattern(bankdata, plot=TRUE, rotate.names = TRUE)
+
+
+#Display missing-data in a bar-plot
+mice_plot <- aggr(bankdata, col=c('navyblue','yellow'),
+                  numbers=TRUE, sortVars=TRUE,
+                  labels=names(bankdata), cex.axis=.7,
+                  gap=3, ylab=c("Missing data","Pattern"))
+
+```
+
+## Summary of response variable 
+
+```{r }
+summary(bankdata$y)
+```
+
+## EDA on categorical variables
+
+## "job"         "marital"     "education"   "default"     "housing"     "loan"        "contact"     "month"      
+## "day_of_week" "poutcome"      
+
+
+```{r }
+catnames = names(bankdata)[sapply(bankdata, class) == "factor"]
+
+```
+
+
+```{r }
+## Summary on Job variable, customers job status
+summary(bankdata$job)
+
+spineplot(x = bankdata$job, y = bankdata$y, xlab = "Job", ylab = "y",
+          main = "Job vs Y", col = c("lightblue", "coral"), xaxlabels = levels(bankdata$job))
+
+chisq.test(bankdata$job, bankdata$y)
+
+CrossTable(bankdata$job, bankdata$y)
+
+```
+
+## Overall, job has some difference in "yes" and "no" among its categories
+## Very low p-value of Chi-Square Test suggests that the variable "job" has a relationship with response variable. We can add keep this variable for final analysis
+
+
+```{r }
+## Summary on marital variable, customers marital status
+
+summary(bankdata$marital)
+
+spineplot(x = bankdata$marital, y = bankdata$y, xlab = "marital", ylab = "y",
+          main = "Marital vs Y", col = c("lightblue", "coral"), xaxlabels = levels(bankdata$marital))
+
+chisq.test(bankdata$marital, bankdata$y)
+
+CrossTable(bankdata$marital, bankdata$y)
+
+```
+
+## Singles (14.0%) slightly more than other levels divorced (10.3%) or married customers (10.2%) in regards to response "yes".
+## P-value of  Chi-Square Test suggests that the variable "marital" has a relationship with response variable. We can keep this variable for final analysis
+
+
+```{r }
+## Summary on education variable, customers education level
+
+summary(bankdata$education)
+
+spineplot(x = bankdata$education, y = bankdata$y, xlab = "Education", ylab = "y",
+          main = "Education vs Y", col = c("lightblue", "coral"), xaxlabels = levels(bankdata$education))
+
+chisq.test(bankdata$education, bankdata$y)
+
+CrossTable(bankdata$education, bankdata$y)
+
+```
+
+## Education has some difference in "yes" and "no" among its categories
+## Low p-value of Chi-Square Test suggests that the variable "education" has a relationship with response variable. We can keep this variable for final analysis
+
+
+
+```{r }
+## Summary on default variable, whether the customer is in default list or not
+
+summary(bankdata$default)
+
+spineplot(x = bankdata$default, y = bankdata$y, xlab = "Default", ylab = "y",
+          main = "Default vs Y", col = c("lightblue", "coral"), xaxlabels = levels(bankdata$default))
+
+chisq.test(bankdata$default, bankdata$y)
+
+CrossTable(bankdata$default, bankdata$y)
+
+```
+
+## Only 3 observations with response “yes” and other observations either "no" or "unknown". 
+## This variable can be revmoed from final analysis even though Chi-Square Test suggests that the variable "default" has a relationship with response variable
+
+
+
+```{r }
+## Summary on housing variable, whether the customers has housing loan with the bank or not
+
+summary(bankdata$housing)
+spineplot(x = bankdata$housing, y = bankdata$y, xlab = "Housing", ylab = "y",
+          main = "Housing vs Y", col = c("lightblue", "coral"), xaxlabels = levels(bankdata$housing))
+
+chisq.test(bankdata$housing, bankdata$y)
+
+CrossTable(bankdata$housing, bankdata$y)
+
+```
+
+## P-value of  Chi-Square Test suggests that the variable "housing" has a no relationship with response variable. We can remove this variable for final analysis
+
+
+
+```{r }
+## Summary on Loan variable, whether the customers has loan with bank or not
+
+summary(bankdata$loan)
+spineplot(x = bankdata$loan, y = bankdata$y, xlab = "Loan", ylab = "y",
+          main = "Loan vs Y", col = c("lightblue", "coral"), xaxlabels = levels(bankdata$loan))
+
+chisq.test(bankdata$loan, bankdata$y)
+
+CrossTable(bankdata$loan, bankdata$y)
+
+```
+
+## P-value of  Chi-Square Test suggests that the variable "loan" has a no relationship with response variable. We can remove this variable for final analysis
+
+```{r }
+## Summary on Contact variable, how customers where contacted during campaign 
+
+summary(bankdata$contact)
+spineplot(x = bankdata$contact, y = bankdata$y, xlab = "contact", ylab = "y",
+          main = "contact vs Y", col = c("lightblue", "coral"), xaxlabels = levels(bankdata$contact))
+
+chisq.test(bankdata$contact, bankdata$y)
+
+CrossTable(bankdata$contact, bankdata$y)
+
+```
+## contact has some difference in "yes" and "no" among its categories (cellular and telephone). cellular with 14.7% and 5.2% for "yes" rsponse
+## P-value of  Chi-Square Test suggests that the variable "contact" has a  relationship with response variable. We can keep this variable for final analysis
+
+```{r }
+## Summary on Month variable
+
+summary(bankdata$month)
+spineplot(x = bankdata$month, y = bankdata$y, xlab = "month", ylab = "y",
+          main = "month vs Y", col = c("lightblue", "coral"), xaxlabels = levels(bankdata$month))
+
+chisq.test(bankdata$month, bankdata$y)
+
+CrossTable(bankdata$month, bankdata$y)
+
+```
+## month has some difference in "yes" and "no" among its categories. Most of the calls were in May but there is higher coversion in March, September, October, and in December. We also notice that no contact has been made during January and February.
+## P-value of  Chi-Square Test suggests that the variable "month" has a  relationship with response variable. We can keep this variable for final analysis
+
+```{r }
+## Summary on day_of_week variable
+
+summary(bankdata$day_of_week)
+spineplot(x = bankdata$day_of_week, y = bankdata$y, xlab = "Day of week", ylab = "y",
+          main = "Day of week vs Y", col = c("lightblue", "coral"), xaxlabels = levels(bankdata$day_of_week))
+
+chisq.test(bankdata$day_of_week, bankdata$y)
+
+CrossTable(bankdata$day_of_week, bankdata$y)
+
+```
+
+## Day of the week has some difference in "yes" and "no" among its categories. Most of the calls were on Thursday (12.1%) and other days are close to 10% 
+## P-value of  Chi-Square Test suggests that the variable "day_of_week" has a  relationship with response variable. We can keep this variable for final analysis
+
+
+```{r }
+## Summary on previous outcome variable
+
+summary(bankdata$poutcome)
+spineplot(x = bankdata$poutcome, y = bankdata$y, xlab = "Previous Outcome", ylab = "y",
+          main = "Previous outcome vs Y", col = c("lightblue", "coral"), xaxlabels = levels(bankdata$poutcome))
+
+chisq.test(bankdata$poutcome, bankdata$y)
+
+CrossTable(bankdata$poutcome, bankdata$y)
+
+```
+## 65.1% of customers where previous outcome was "Success" has a response of "yes"  
+## 14.2% of customers where previous outcome was "failure" has a response of "yes"  
+## 8.8% of customers who were not contacted has a response of "yes"  
+## P-value of  Chi-Square Test suggests that the variable "poutcome" has a  relationship with response variable. We can keep this variable for final analysis
+
+
+##### We need to keep below variables in the predictive model
+## job   marital  education  contact  month  day_of_week  poutcome
+
+##### Below variables will not be included in the predictive model as there is no significance with response variable
+## default  housing  loan
+
+
+## EDA on continuous variables
+
+##"age"            "duration"       "campaign"       "pdays"          "previous"       "emp.var.rate"   "cons.price.idx"
+## "cons.conf.idx"  "euribor3m"      "nr.employed" 
+
+
+
+```{r }
+contnames = names(bankdata)[sapply(bankdata, class) == "integer" | sapply(bankdata, class) == "numeric"]
+
+```
+
+```{r}
+#correlation plot for all continuous variables
+corrgram(bankdata, order=TRUE,
+         upper.panel=panel.cor, lower.panel=panel.pie, main="Bank data Correlogram")
+```
+
+## euribor3m and nr.employed are highly correlated (0.95)
+## emp.var.rate and euribor3m are highly correlated (0.97)
+## emp.var.rate and nr.employed are highly correlated (0.91)
+
+```{r}
+#multicolliniarity check
+bank.model<-lm(age~duration+campaign+pdays+previous+emp.var.rate+cons.price.idx+cons.conf.idx+euribor3m+nr.employed, data=bankdata)
+
+summary(bank.model)
+vif(bank.model)
+
+# removed varaible euribor3m which has VIF 64.33
+bank.model1<-lm(age~duration+campaign+pdays+previous+emp.var.rate+cons.price.idx+cons.conf.idx+nr.employed, data=bankdata)
+
+summary(bank.model1)
+vif(bank.model1)
+
+#removed varaible emp.var.rate which has VIF 24.12
+
+bank.model2<-lm(age~duration+campaign+pdays+previous+cons.price.idx+cons.conf.idx+nr.employed, data=bankdata)
+
+summary(bank.model2)
+vif(bank.model2)
+```
+
+#### We can remove variables emp.var.rate and nr.employed as these variables are highly correlated with nr.employed
+
+```{r }
+## Summary on age variable
+summary(bankdata$age)
+bankdata %>%  ggplot(aes(x = age, fill = y, color=y)) + geom_bar() + ggtitle("Distribution of Age") + xlab("Age") + 
+  scale_x_continuous(breaks = seq(0, 100, 5))
+
+ggplot(bankdata, aes(x = y, y=age, fill=y)) + geom_boxplot() + ggtitle("Distribution of Age") + xlab("Response") + ylab ("Age")
+
+
+```
+
+## The minimum and maximum values are 17 and 98 and distribution of age is slightly right screwed 
+## Highest concentration of values between 22 and 60 and distribution of values between 22 and 60 is normal
+
+
+```{r }
+## Summary on duration variable
+
+summary(bankdata$duration)
+bankdata %>%  ggplot(aes(x = duration, fill = y)) + geom_bar() + ggtitle("Distribution of Duration") + xlab("Duration") +
+  scale_x_continuous(breaks = seq(0, 5000, 300)) 
+
+ggplot(bankdata, aes(x = y, y=duration, fill=y)) + geom_boxplot() + ggtitle("Distribution of Duration") + xlab("Response") + ylab ("Duration")
+
+
+```
+
+## The minimum and maximum values are 0 and 4918 sec and distribution of duration is highly right screwed 
+## "duration" and "y"are pretty strongly associated. The longer duration is, the bigger prportion of people subscibe a term deposit.
+
+
+```{r }
+
+## Summary on campaign variable. Number of contacts performed during this campaign and for this client 
+
+summary(bankdata$campaign)
+bankdata %>%  ggplot(aes(x = campaign, fill = y)) + geom_bar() + ggtitle("Distribution of Campaign") + xlab("Campaign")+
+  scale_x_continuous(breaks = seq(0, 50, 1)) 
+
+ggplot(bankdata, aes(x = y, y=campaign, fill=y)) + geom_boxplot() + ggtitle("Distribution of campaign") + xlab("Response") + ylab ("campaign")
+
+aggregate(data.frame(count = bankdata$campaign), list(value = bankdata$campaign), length)
+
+bankdata <- bankdata %>%   
+    filter(campaign <= 10) 
+
+```
+
+## The minimum and maximum values are 1 and 56 and distribution of campaign is right screwed 
+## looks like outlier in capaign varaible, after 8, the outcome is "no" for all observations. we can limit our study to 8
+## Most of the campaign is on 1 and 2.
+## There is a trend that the more number of campaign, the less percentage of clients substribe a term deposit, Expecially for campaign more than 3.
+
+
+```{r }
+
+## Summary on pdays variable. Number of days that passed by after the client was last contacted from a previous campaign
+
+summary(bankdata$pdays)
+bankdata %>%  ggplot(aes(x = pdays, fill = y)) + geom_bar() + ggtitle("Distribution of pdays") + xlab("pdays") 
+
+ggplot(bankdata, aes(x = y, y=pdays, fill=y)) + geom_boxplot() + ggtitle("Distribution of pdays") + xlab("Response") + ylab ("pdays")
+
+aggregate(data.frame(count = bankdata$pdays), list(value = bankdata$pdays), length)
+
+```
+## most of the observations has value of 999 which mean these customers never contacted in the past.
+
+```{r }
+## Summary on previous variable. How many number of contacts performed before this campaign 
+
+summary(bankdata$previous)
+bankdata %>%  ggplot(aes(x = previous, fill = y)) + geom_bar() + ggtitle("Distribution of previous") + xlab("previous") 
+
+ggplot(bankdata, aes(x = y, y=previous, fill=y)) + geom_boxplot() + ggtitle("Distribution of previous") + xlab("Response") + ylab ("previous")
+
+aggregate(data.frame(count = bankdata$previous), list(value = bankdata$previous), length)
+
+```
+## The minimum and maximum values are 0 and 7. Most of the obserations with 0 value mean the customers never contacted in the past.
+
+```{r }
+## Summary on emp.var.rate variable. We can remove this variable from our analysis because of multicolliniarity 
+
+summary(bankdata$emp.var.rate)
+bankdata %>%  ggplot(aes(x = emp.var.rate, fill = y)) + geom_bar() + ggtitle("Distribution of emp.var.rate") + xlab("emp.var.rate") 
+
+ggplot(bankdata, aes(x = y, y=emp.var.rate, fill=y)) + geom_boxplot() + ggtitle("Distribution of emp.var.rate") + xlab("Response") + ylab ("emp.var.rate")
+
+```
+
+```{r }
+## Summary on cons.price.idx variable. consumer price index - monthly indicator
+
+summary(bankdata$cons.price.idx)
+bankdata %>%  ggplot(aes(x = cons.price.idx, fill = y)) + geom_bar() + ggtitle("Distribution of cons.price.idx") + xlab("cons.price.idx")
+
+ggplot(bankdata, aes(x = y, y=cons.price.idx, fill=y)) + geom_boxplot() + ggtitle("Distribution of cons.price.idx") + xlab("Response") + ylab ("cons.price.idx")
+
+```
+
+## Overall, comsumer price index has some difference in "yes" and "no" among different values
+## Minimum and maximum values are 92.20 and 94.77 respectively
+
+
+```{r }
+## Summary on cons.conf.idx variable. consumer confidence index - monthly indicator 
+
+summary(bankdata$cons.conf.idx)
+bankdata %>%  ggplot(aes(x = cons.conf.idx, fill = y)) + geom_bar() + ggtitle("Distribution of cons.conf.idx") + xlab("cons.conf.idx")
+
+ggplot(bankdata, aes(x = y, y=cons.conf.idx, fill=y)) + geom_boxplot() + ggtitle("Distribution of cons.conf.idx") + xlab("Response") + ylab ("cons.conf.idx")
+
+```
+## Overall, comsumer confidence index has some difference in "yes" and "no" among different values
+## Minimum and maximum values are -50.8 and -26.9 respectively
+
+```{r }
+## Summary on euribor3m variable. euribor 3 month rate - daily indicator 
+
+summary(bankdata$euribor3m)
+bankdata %>%  ggplot(aes(x = euribor3m, fill = y)) + geom_bar() + ggtitle("Distribution of euribor3m") + xlab("euribor3m")
+
+ggplot(bankdata, aes(x = y, y=euribor3m, fill=y)) + geom_boxplot() + ggtitle("Distribution of euribor3m") + xlab("Response") + ylab ("euribor3m")
+
+```
+
+## Minimum and maximum values are 0.634 and 5.045 respectively
+
+```{r }
+## Summary on nr.employed variable. We can remove this variable from our analysis because of multicolliniarity 
+
+summary(bankdata$nr.employed)
+bankdata %>%  ggplot(aes(x = nr.employed, fill = y)) + geom_bar() + ggtitle("Distribution of nr.employed") + xlab("nr.employed")
+
+ggplot(bankdata, aes(x = y, y=nr.employed, fill=y)) + geom_boxplot() + ggtitle("Distribution of nr.employed") + xlab("Response") + ylab ("nr.employed")
+
+```
+
+
+### Remove five  variables: default, housing, loan, emp.var.rate and  nr.employed
+
+
+### Create dummy variables to categorical variables
+
+
+```{r}
+
+bankdata_new = bankdata
+bankdata_new = createDummyFeatures(bankdata_new, cols = "job")
+bankdata_new = createDummyFeatures(bankdata_new, cols = "marital")
+bankdata_new = createDummyFeatures(bankdata_new, cols = "education")
+bankdata_new = createDummyFeatures(bankdata_new, cols = "contact")
+bankdata_new = createDummyFeatures(bankdata_new, cols = "month")
+bankdata_new = createDummyFeatures(bankdata_new, cols = "day_of_week")
+bankdata_new = createDummyFeatures(bankdata_new, cols = "poutcome")
+str(bankdata_new)
+
+bankdata_new = bankdata_new %>% dplyr::select(-c('default', 'housing', 'loan', 'emp.var.rate', 'nr.employed', 'y'))
+
+```
+
+## PCA with all varaibles  
+```{r}
+pc.bankdata<-prcomp(bankdata_new,scale.=TRUE)
+
+pc.scores<-pc.bankdata$x
+
+pc.scores
+
+#Adding the response column to the PC's data frame
+pc.scores<-data.frame(pc.scores)
+pc.scores$y<-bankdata$y
+
+#Use ggplot2 to plot the first few pc's
+library(ggplot2)
+ggplot(data = pc.scores, aes(x = PC1, y = PC2)) +
+  geom_point(aes(col=y), size=1)+
+  ggtitle("PCA of bank data")
+
+library(ggplot2)
+ggplot(data = pc.scores, aes(x = PC2, y = PC3)) +
+  geom_point(aes(col=y), size=1)+
+  ggtitle("PCA of bank data")
+
+```
+
+### LDA with PCA variables (all variables)
+
+````{r}
+
+mylda1 <- lda(y ~ PC1+PC2 , data = pc.scores)
+
+x1=table(predict(mylda1, type="class")$class, pc.scores$y)
+x1
+#Missclassification Error
+ME1<-(x1[2,1]+x1[1,2])/dim(pc.scores)[1]
+ME1
+#Calculating overall accuracy
+1-ME1
+
+```
+
+### LDA with all continuous variables
+
+````{r}
+
+bankdata_conti = bankdata %>% dplyr::select(c('age', 'duration', 'campaign', 'pdays', 'previous',  'cons.price.idx', 'cons.conf.idx',
+                                       'euribor3m', 'y'))
+
+mylda1 <- lda(y ~ . , data = bankdata_conti)
+
+x1=table(predict(mylda1, type="class")$class, bankdata_conti$y)
+x1
+#presicion
+x1[1,1]/sum(x1[1,1:2])
+
+#recall
+x1[1,1]/sum(x1[1:2,1])
+
+# F score
+
+(2*(x1[1,1]/sum(x1[1,1:2])) * (x1[1,1]/sum(x1[1:2,1])))/(x1[1,1]/sum(x1[1,1:2])) + (x1[1,1]/sum(x1[1:2,1]))
+
+#Missclassification Error
+ME1<-(x1[2,1]+x1[1,2])/dim(bankdata_conti)[1]
+ME1
+#Calculating overall accuracy
+1-ME1
+
+```
+
+### PCA - all continuous variables
+
+````{r}
+
+bankdata_conti_PCA = bankdata %>% dplyr::select(c('age', 'duration', 'campaign', 'pdays', 'previous',  'cons.price.idx', 'cons.conf.idx', 'euribor3m'))
+
+pc.bankdata.cont<-prcomp(bankdata_conti_PCA,scale.=TRUE)
+
+pc.scores.cont<-pc.bankdata.cont$x
+pc.scores.cont
+
+
+#Adding the response column to the PC's data frame
+pc.scores.cont<-data.frame(pc.scores.cont)
+pc.scores.cont$y<-bankdata$y
+
+#Use ggplot2 to plot the first few pc's
+library(ggplot2)
+ggplot(data = pc.scores.cont, aes(x = PC1, y = PC2)) +
+  geom_point(aes(col=y), size=1)+
+  ggtitle("PCA of bank data")
+
+library(ggplot2)
+ggplot(data = pc.scores.cont, aes(x = PC2, y = PC3)) +
+  geom_point(aes(col=y), size=1)+
+  ggtitle("PCA of bank data")
+
+
+```
+
+### LDA with all continuous variables
+
+````{r}
+
+
+mylda2 <- lda(y ~ PC1+PC2 , data = pc.scores.cont)
+
+x1=table(predict(mylda2, type="class")$class, bankdata$y)
+x1
+#presicion
+x1[1,1]/sum(x1[1,1:2])
+
+#recall
+x1[1,1]/sum(x1[1:2,1])
+
+# F score
+
+(2*(x1[1,1]/sum(x1[1,1:2])) * (x1[1,1]/sum(x1[1:2,1])))/(x1[1,1]/sum(x1[1,1:2])) + (x1[1,1]/sum(x1[1:2,1]))
+
+#Missclassification Error
+ME1<-(x1[2,1]+x1[1,2])/dim(bankdata_conti)[1]
+ME1
+#Calculating overall accuracy
+1-ME1
+
+```
+
+
+#### KNN model 
+
+```{r}
+library(caret)
+iterations = 10
+numks = 50
+
+masterAcc = matrix(nrow = iterations, ncol = numks)
+  
+for(j in 1:iterations)
+{
+accs = data.frame(accuracy = numeric(10), k = numeric(10))
+trainIndices = sample(1:dim(bankdata)[1],round(splitPerc * dim(bankdata)[1]))
+train = bankdata[trainIndices,]
+test = bankdata[-trainIndices,]
+for(i in 1:numks)
+{
+  classifications = knn(train[,c(1,20)],test[,c(1,20)],train$y, prob = TRUE, k = i)
+  table(classifications,test$y)
+  CM = confusionMatrix(table(classifications,test$y))
+  masterAcc[j,i] = CM$overall[1]
+}
+
+}
+
+MeanAcc = colMeans(masterAcc)
+
+plot(seq(1,numks,1),MeanAcc, type = "l")
+```
+
+
+#### KNN model
+
+#### Creating a balanced dataset
+### First of all let's create a new dataset with our class balanced with oversampling and also with undersampling 
+## Splitting the data into training and test datasets (80-20 split)
+
+```{r}
+bank_downsample <- downSample(x = bankdata[, -ncol(bankdata)], y = bankdata$y)
+summary(bank_downsample$Class) 
+
+bank_upsample <- upSample(x = bankdata[, -ncol(bankdata)], y = bankdata$y)
+summary(bank_upsample$Class)
+
+downindex <- createDataPartition(bank_downsample$Class, p = 0.8, list=FALSE)
+
+train_bankdata_down <- bank_downsample[downindex,]
+test_bankdata_down <- bank_downsample[-downindex,]
+
+upindex <- createDataPartition(bank_upsample$Class, p = 0.8, list=FALSE)
+
+train_bankdata_up <- bank_upsample[upindex,]
+test_bankdata_up <- bank_upsample[-upindex,]
+
+```
+
+
+
