@@ -2,28 +2,19 @@
 title: "eda_proj2"
 author: "YZ"
 date: "3/12/2020"
-output: html_document
+output:
+  html_document:
+    code_folding: "hide"
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
 ## Exploratory Analysis
 
 
-Observations:
--Load in the bank-additional-full.csv dataset
--A total of 21 columns
+### Observations:
+#### Load in the bank-additional-full.csv dataset
+#### A total of 21 columns
 
 
-```{r}
+```{r setup, include=FALSE}
 library(data.table) #for %like% function
 library(xml2)
 library(purrr)
@@ -37,7 +28,7 @@ library(readr)
 bank <- read_delim("C:/Users/taniat470s/Desktop/SMU_course/DS6372/bank-additional/bank-additional-full.csv", delim = ";")
 ```
 
-```{r EDA}
+```{r EDA, echo=TRUE}
 
 # Yang EDA
 summary(bank)
@@ -55,14 +46,12 @@ unique(bank$y)
 
 ```
 
-Observations:
--Category variables include: job, marital, education, default, housing, loan, contact, month, day_of_week, poutcome, y
--Continues variables include: age, duration, campaign, pdays, previous, emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed
--No NAs within the dataset
+### Observations:
+#### Category variables include: job, marital, education, default, housing, loan, contact, month, day_of_week, poutcome, y
+#### Continues variables include: age, duration, campaign, pdays, previous, emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed
+#### No NAs within the dataset
 
-```{r}
-
-
+```{r Overview, echo=TRUE}
 library(GGally)
 library(forcats)
 library(dplyr)
@@ -74,23 +63,21 @@ dim(bank)
 
 # Print out a summary of the dataset
 bank %>% glimpse()
-```
 
-```{r}
 #Check NA values
 print(colSums(is.na(bank)))
 ```
 
 
-Observations:
--Histograms of the continous variables display vary distributions.
--Age with a wide close-to-normal distribution leaning lightly to younger ages.
--Duration, campaign, previous are strongly leaning to the left, and may need a log transformation.
--Pdays just two values, should be considered to switch to a factor-based variable.
--The rest variables are quite discrete from their distribution.
+### Observations:
+#### Histograms of the continous variables display vary distributions.
+#### Age with a wide close-to-normal distribution leaning lightly to younger ages.
+#### Duration, campaign, previous are strongly leaning to the left, and may need a log transformation.
+#### Pdays just two values, should be considered to switch to a factor-based variable.
+#### The rest variables are quite discrete from their distribution.
 
 
-```{r}
+```{r Histogram, echo=TRUE}
 ggplot(data=bank[!is.na(bank$age),], aes(x=age)) +
         geom_histogram(fill="blue", binwidth = 1) + labs(title="Age Histogram", x="Age")
 
@@ -124,13 +111,13 @@ ggplot(data=bank[!is.na(bank$nr.employed),], aes(x=nr.employed)) +
 ```
 
 
-Observations:
--Continuous variables are plotted by contrasting y, some show obvious differences some don't.
--Some variables the showed differences: Duration, Emp.var.rate, Cons.price,idx, Ons.conf.idx, Euribor3m, Nr.employed 
--Some variables don't show obvious differences:Age, Campaign, Previous
+### Observations:
+#### Continuous variables are plotted by contrasting y, some show obvious differences some don't.
+#### Some variables the showed differences: Duration, Emp.var.rate, Cons.price,idx, Ons.conf.idx, Euribor3m, Nr.employed 
+#### Some variables don't show obvious differences:Age, Campaign, Previous
 
 
-```{r}
+```{r ContrastY, echo=TRUE}
 g1<- bank %>% ggplot(aes(x=age, fill=y)) + geom_density(alpha = 0.7) + labs(title="Age Distribution colored by Term Deposit") 
 
 g2<- bank %>% ggplot(aes(x=log(duration), fill=y)) + geom_density(alpha = 0.7) + labs(title="Duration Distribution colored by Term Deposit") 
@@ -153,12 +140,13 @@ grid.arrange(g1,g2,g3,g4,g5,g6,g7,g8,g9,ncol = 3, nrow = 3)
 
 ```
 
-Observations:
--We don't observe strong linear relationship by cross-plot all continuous variables.
--We observed some seperation in cross-plot colored by variable y.
+### Observations:
+#### We don't observe strong linear relationship by cross-plot all continuous variables.
+#### We observed some seperation in cross-plot colored by variable y.
 
-```{r}
+```{r Pairs, echo=TRUE}
 bank_con <- bank %>% dplyr::select(age, duration,campaign,pdays,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed) 
+
 pairs(bank_con)
 
 table(bank$y)
@@ -170,11 +158,11 @@ bank_cony$y <- factor(bank_cony$y)
 pairs(bank_cony[,-11], col=bank_cony$y)
 ```
 
-Observations:
--Crossplots of some continuous variables to identify the seperation by variable y. Age vs Duration shows seperation in duration. Campaign vs Duration also shows seperation in duration.
--Other crossplots doesn't show obvious seperation by variable y.
+### Observations:
+#### Crossplots of some continuous variables to identify the seperation by variable y. Age vs Duration shows seperation in duration. Campaign vs Duration also shows seperation in duration.
+#### Other crossplots doesn't show obvious seperation by variable y.
 
-```{r}
+```{r Crossplot, echo=TRUE}
 bank %>% dplyr::select(age, duration,y) %>%
 ggplot(aes(x=age, y=log(duration)))+ geom_point(aes(colour = factor(y))) + labs(title="Age vs  Duration", x="age",y="duration") 
 
@@ -192,12 +180,12 @@ ggplot(aes(x=cons.conf.idx, y=cons.price.idx))+ geom_point(aes(colour = factor(y
 
 ```
 
-Observations:
--We did pca on the continous data group. Good seperation on especially PC2.
--PC1 is a combination of emp.var.rate,cons.price.idx,euribor3m,nr.employed.
--PC2 is a combination of pdays and previous.
+### Observations:
+#### We did pca on the continous data group. Good seperation on especially PC2.
+#### PC1 is a combination of emp.var.rate,cons.price.idx,euribor3m,nr.employed.
+#### PC2 is a combination of pdays and previous.
 
-```{r}
+```{r PCA1, echo=TRUE}
 pc.bc<-prcomp(bank_con,scale.=TRUE)
 pc.bc.scores<-pc.bc$x
 
@@ -218,12 +206,24 @@ ggplot(data = pc.bc.scores, aes(x = PC2, y = PC3)) +
 pc.bc$rotation
 ```
 
-Observations:
--Because pdays is not a typical continous feature, we did pca on the continous data group excluding this variable. Good seperation on PC2 and PC3
--PC2 is a combination of age and cons.conf.idx.
--PC3 is a combination of duration and campaign.
+#### PCA results shows 7 PCs can explain 95% of the variations
 
-```{r}
+```{r Scree1, echo=TRUE}
+par(mfrow=c(1,2))
+eigenvals<-(pc.bc$sdev)^2
+plot(1:10,eigenvals/sum(eigenvals),type="l",main="Scree Plot",ylab="Prop. Var. Explained")
+cumulative.prop<-cumsum(eigenvals/sum(eigenvals))
+plot(1:10,cumulative.prop,type="l",main="Cumulative proportion",ylim=c(0,1))
+cumulative.prop
+```
+
+
+### Observations:
+#### Because pdays is not a typical continous feature, we did pca on the continous data group excluding this variable. Good seperation on PC2 and PC3
+#### PC2 is a combination of age and cons.conf.idx.
+#### PC3 is a combination of duration and campaign.
+
+```{r PCA2, echo=TRUE}
 bank_con2 <- bank %>% dplyr::select(age, duration,campaign,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed) 
 
 pc.bc2<-prcomp(bank_con2,scale.=TRUE)
@@ -245,3 +245,275 @@ ggplot(data = pc.bc2.scores, aes(x = PC2, y = PC3)) +
 
 pc.bc2$rotation
 ```
+
+#### PCA results shows 6 PCs can explain 95% of the variations
+
+```{r Scree2, echo=TRUE}
+par(mfrow=c(1,2))
+eigenvals<-(pc.bc2$sdev)^2
+plot(1:9,eigenvals/sum(eigenvals),type="l",main="Scree Plot",ylab="Prop. Var. Explained")
+cumulative.prop<-cumsum(eigenvals/sum(eigenvals))
+plot(1:9,cumulative.prop,type="l",main="Cumulative proportion",ylim=c(0,1))
+cumulative.prop
+```
+
+
+### Observations:
+#### LDA with all exist continuous variables can get an accuracy of 90.7%.
+
+````{r LDA1, echo=TRUE}
+### LDA with all continuous variables
+library(MASS)
+
+mylda1 <- lda(bank$y ~ . , data = bank_con)
+
+x1=table(predict(mylda1, type="class")$class, bank$y)
+x1
+#presicion
+x1[1,1]/sum(x1[1,1:2])
+
+#recall
+x1[1,1]/sum(x1[1:2,1])
+
+# F score
+
+(2*(x1[1,1]/sum(x1[1,1:2])) * (x1[1,1]/sum(x1[1:2,1])))/(x1[1,1]/sum(x1[1,1:2])) + (x1[1,1]/sum(x1[1:2,1]))
+
+#Missclassification Error
+ME1<-(x1[2,1]+x1[1,2])/dim(bank_con)[1]
+ME1
+#Calculating overall accuracy
+1-ME1
+
+```
+
+
+### Observations:
+#### LDA with all exist continuous variables can get an accuracy of 90.6%.
+
+````{r LDA2, echo=TRUE}
+### LDA with all continuous variables excluding pdays
+
+mylda2 <- lda(bank$y ~ . , data = bank_con2)
+
+x1=table(predict(mylda2, type="class")$class, bank$y)
+x1
+#presicion
+x1[1,1]/sum(x1[1,1:2])
+
+#recall
+x1[1,1]/sum(x1[1:2,1])
+
+# F score
+
+(2*(x1[1,1]/sum(x1[1,1:2])) * (x1[1,1]/sum(x1[1:2,1])))/(x1[1,1]/sum(x1[1,1:2])) + (x1[1,1]/sum(x1[1:2,1]))
+
+#Missclassification Error
+ME1<-(x1[2,1]+x1[1,2])/dim(bank_con2)[1]
+ME1
+#Calculating overall accuracy
+1-ME1
+
+```
+
+
+### Observations:
+#### LDA with selected continuous variables can get an accuracy of 90.7%.
+
+````{r LDA3, echo=TRUE}
+### LDA with all continuous variables selected from Balaji's work
+
+bank_con_select = bank %>% dplyr::select(c('age', 'duration', 'campaign', 'pdays', 'previous',  'cons.price.idx', 'cons.conf.idx',
+                                       'euribor3m'))
+
+
+mylda3 <- lda(bank$y ~ . , data = bank_con_select)
+
+x1=table(predict(mylda3, type="class")$class, bank$y)
+x1
+#presicion
+x1[1,1]/sum(x1[1,1:2])
+
+#recall
+x1[1,1]/sum(x1[1:2,1])
+
+# F score
+
+(2*(x1[1,1]/sum(x1[1,1:2])) * (x1[1,1]/sum(x1[1:2,1])))/(x1[1,1]/sum(x1[1,1:2])) + (x1[1,1]/sum(x1[1:2,1]))
+
+#Missclassification Error
+ME1<-(x1[2,1]+x1[1,2])/dim(bank_con_select)[1]
+ME1
+#Calculating overall accuracy
+1-ME1
+
+```
+
+### Observations:
+#### PCA with selected continuous variables show some good seperation in PC1 vs PC2 and PC2 vs PC3.
+#### PC1 is a combination of pdays, previous, cons.price.idx and eruibor3m.
+#### PC2 is a combination of pdays, cons.conf.idx.
+#### PC3 is a combination of age, duration and campaign.
+
+```{r PCA3, echo=TRUE}
+pc.bc3<-prcomp(bank_con_select,scale.=TRUE)
+pc.bc3.scores<-pc.bc3$x
+
+#Adding the response column to the PC's data frame
+pc.bc3.scores<-data.frame(pc.bc3.scores)
+pc.bc3.scores$y<-bank$y
+
+#Use ggplot2 to plot the first few pc's
+ggplot(data = pc.bc3.scores, aes(x = PC1, y = PC2)) +
+  geom_point(aes(col=y), size=1)+
+  ggtitle("PCA of Bank Dataset PC1 and PC2")
+
+ggplot(data = pc.bc3.scores, aes(x = PC2, y = PC3)) +
+  geom_point(aes(col=y), size=1)+
+  ggtitle("PCA of Bank Dataset PC2 and PC3")
+
+pc.bc3$rotation
+```
+
+#### PCA results shows 6 PCs can explain 92% of the variations
+```{r Scree3, echo=TRUE}
+par(mfrow=c(1,2))
+eigenvals<-(pc.bc3$sdev)^2
+plot(1:8,eigenvals/sum(eigenvals),type="l",main="Scree Plot",ylab="Prop. Var. Explained")
+cumulative.prop<-cumsum(eigenvals/sum(eigenvals))
+plot(1:8,cumulative.prop,type="l",main="Cumulative proportion",ylim=c(0,1))
+cumulative.prop
+```
+
+### LDA with 6 PCs as variables give an accuracy of 90.4%.
+
+````{r LDA4, echo=TRUE}
+
+
+mylda4 <- lda(bank$y ~ PC1+PC2+PC3+PC4+PC5+PC6 , data = pc.bc3.scores)
+
+x1=table(predict(mylda4, type="class")$class, bank$y)
+x1
+#presicion
+x1[1,1]/sum(x1[1,1:2])
+
+#recall
+x1[1,1]/sum(x1[1:2,1])
+
+# F score
+
+(2*(x1[1,1]/sum(x1[1,1:2])) * (x1[1,1]/sum(x1[1:2,1])))/(x1[1,1]/sum(x1[1,1:2])) + (x1[1,1]/sum(x1[1:2,1]))
+
+#Missclassification Error
+ME1<-(x1[2,1]+x1[1,2])/dim(bank_con_select)[1]
+ME1
+#Calculating overall accuracy
+1-ME1
+
+```
+
+### LDA with only the first 2 PCs as variables shows a linear cutoff line below.
+```{r LDA5, echo=TRUE}
+# construct the LDA model
+mylda5 <- lda(bank$y ~ PC1+PC2, data = pc.bc3.scores)
+
+# draw discrimination line
+np <- 300
+nd.x <- seq(from = min(pc.bc3.scores$PC1), to = max(pc.bc3.scores$PC1), length.out = np)
+nd.y <- seq(from = min(pc.bc3.scores$PC2), to = max(pc.bc3.scores$PC2), length.out = np)
+nd <- expand.grid(PC1 = nd.x, PC2 = nd.y)
+
+prd <- as.numeric(predict(mylda5, newdata = nd)$class)
+
+plot(pc.bc3.scores[, 1:2], col = as.factor(bank$y), main="LDA with PC1 and PC2")
+points(mylda5$means, pch = "+", cex = 2, col = c("black", "red"))
+contour(x = nd.x, y = nd.y, z = matrix(prd, nrow = np, ncol = np), 
+        levels = c(1, 2), add = TRUE, drawlabels = FALSE)
+```
+
+
+### LDA with only PC2 and PC3 as variables shows a linear cutoff line below.
+```{r LDA6, echo=TRUE}
+# construct the LDA model
+mylda6 <- lda(bank$y ~ PC2+PC3, data = pc.bc3.scores)
+
+# draw discrimination line
+np <- 300
+nd.x <- seq(from = min(pc.bc3.scores$PC2), to = max(pc.bc3.scores$PC2), length.out = np)
+nd.y <- seq(from = min(pc.bc3.scores$PC3), to = max(pc.bc3.scores$PC3), length.out = np)
+nd <- expand.grid(PC2 = nd.x, PC3 = nd.y)
+
+prd <- as.numeric(predict(mylda6, newdata = nd)$class)
+
+plot(pc.bc3.scores[, 2:3], col = as.factor(bank$y), main="LDA with PC2 and PC3")
+points(mylda6$means, pch = "+", cex = 2, col = c("black", "red"))
+contour(x = nd.x, y = nd.y, z = matrix(prd, nrow = np, ncol = np), 
+                levels = c(1, 2), add = TRUE, drawlabels = FALSE)
+```
+
+
+### QDA with only the first 2 PCs as variables shows a nonlinear cutoff line below.
+```{r QDA1, echo=TRUE}
+# construct the QDA model
+myqda <- qda(bank$y ~ PC1+PC2, data = pc.bc3.scores)
+
+# draw discrimination line
+np <- 300
+nd.x <- seq(from = min(pc.bc3.scores$PC1), to = max(pc.bc3.scores$PC1), length.out = np)
+nd.y <- seq(from = min(pc.bc3.scores$PC2), to = max(pc.bc3.scores$PC2), length.out = np)
+nd <- expand.grid(PC1 = nd.x, PC2 = nd.y)
+
+prd <- as.numeric(predict(myqda, newdata = nd)$class)
+
+plot(pc.bc3.scores[, 1:2], col = as.factor(bank$y), main="QDA with PC1 and PC2")
+points(myqda$means, pch = "+", cex = 2, col = c("black", "red"))
+contour(x = nd.x, y = nd.y, z = matrix(prd, nrow = np, ncol = np), 
+                levels = c(1, 2), add = TRUE, drawlabels = FALSE)
+```
+
+### QDA with only PC2 and PC3 as variables shows a non-linear cutoff line below.
+```{r QDA2, echo=TRUE}
+# construct the QDA model
+myqda2 <- qda(bank$y ~ PC2+PC3, data = pc.bc3.scores)
+
+# draw discrimination line
+np <- 300
+nd.x <- seq(from = min(pc.bc3.scores$PC2), to = max(pc.bc3.scores$PC2), length.out = np)
+nd.y <- seq(from = min(pc.bc3.scores$PC3), to = max(pc.bc3.scores$PC3), length.out = np)
+nd <- expand.grid(PC2 = nd.x, PC3 = nd.y)
+
+prd <- as.numeric(predict(myqda2, newdata = nd)$class)
+
+plot(pc.bc3.scores[, 2:3], col = as.factor(bank$y), main="QDA with PC2 and PC3")
+points(myqda2$means, pch = "+", cex = 2, col = c("black", "red"))
+contour(x = nd.x, y = nd.y, z = matrix(prd, nrow = np, ncol = np), 
+                levels = c(1, 2), add = TRUE, drawlabels = FALSE)
+```
+        
+### QDA with all continuous variables give an accuracy of 88.9%.
+
+````{r QDA3, echo=TRUE}
+
+
+myqda3 <- qda(bank$y ~ PC1+PC2+PC3+PC4+PC5+PC6 , data = pc.bc3.scores)
+
+x1=table(predict(myqda3, type="class")$class, bank$y)
+x1
+#presicion
+x1[1,1]/sum(x1[1,1:2])
+
+#recall
+x1[1,1]/sum(x1[1:2,1])
+
+# F score
+
+(2*(x1[1,1]/sum(x1[1,1:2])) * (x1[1,1]/sum(x1[1:2,1])))/(x1[1,1]/sum(x1[1,1:2])) + (x1[1,1]/sum(x1[1:2,1]))
+
+#Missclassification Error
+ME1<-(x1[2,1]+x1[1,2])/dim(bank_con_select)[1]
+ME1
+#Calculating overall accuracy
+1-ME1
+
+```
+    
