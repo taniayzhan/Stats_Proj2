@@ -2,24 +2,143 @@
 
 #load libraries
 library(tidyverse)
+library(GGally)
 
 #import data
 bank = read.csv("data/bank-additional-full.csv",sep=";")
 
-#see the data lay of the land
+#see the data lay of the land. There's a lot more No's than Yes's
 str(bank)
 head(bank)
 
 #checking for missing data-- this has no missing data
 summary(bank)
-nas <- bank[rowSums(is.na(bank)) > 0,]
-dim(nas)
+colSums(is.na(bank))
+
+#--- MODELING | simple logistic regression ---
+
+#starting with just everything
+model.main<-glm(y ~ ., data=bank,family = binomial(link="logit"))
+summary(model.main)
+
+#check odds ratio
+exp(cbind("Odds ratio" = coef(model.main), confint.default(model.main, level = 0.95)))
+
+#see the fitted values are a probability between 0 and 1
+head(model.main$fitted.values)
+
+#forward selection to see what it chooses
+model.null<-glm(y ~ 1, data=bank,family = binomial(link="logit"))
+model.step <- step(model.null,
+     scope = list(upper=model.main),
+     direction="forward",
+     test="Chisq",
+     data=bank)
+
+summary(model.step)
+
+#--- EVALUATING MODEL ---
+
+#convert fitted values to yes/no on a threshold of .5
+model.step$preds <- factor(ifelse(model.step$fitted.values>.5, "yes", "no"))
+head(model.step$fitted.values)
+head(model.step$preds)
+model.main$preds <- factor(ifelse(model.main$fitted.values>.5, "yes", "no"))
+
+#confusion matrix 
+confusionMatrix(table(model.main$preds, bank$y))
+confusionMatrix(table(model.step$preds, bank$y))
+
+#finding the best threshold for yes/no
+thresholds <- seq(0.1, .6, by=.02)
+accuracies <- c()
+sensitivities <- c()
+specificities <- c()
+for(i in thresholds){
+  model.step$preds <- factor(ifelse(model.step$fitted.values>i, "yes", "no"))
+  cm <- confusionMatrix(table(model.step$preds, bank$y))
+  accuracies <- c(accuracies, cm$overall[1])
+  sensitivities <- c(sensitivities, cm$byClass[1])
+  specificities <- c(specificities, cm$byClass[2])
+}
+
+accuracies
+sensitivities
+specificities
+
+metrics <- data.frame(thresholds,accuracies,sensitivities,specificities)
+metrics_long <- metrics %>%
+  gather(key=metric, percent, accuracies:specificities)
+
+#plot the accuracy, sensitivity, and specificity over the thresholds; between .1-.2 seems decent to me
+metrics_long %>%
+  ggplot(aes(x=thresholds, y=percent, color = metric)) +
+  geom_point() +
+  ggtitle("Accuracy, Sensitivity, and Specificity at Thresholds")
+
+
+#--- MODELING | adding complexity ---
+model.main$terms
+summary(model.step)
+
+model.main<-glm(y ~ duration * nr.employed + month + poutcome + emp.var.rate + 
+                  cons.price.idx + job + contact + euribor3m + default + day_of_week + 
+                  pdays + campaign + cons.conf.idx, data=bank,family = binomial(link="logit"))
+#things I like manually: y~job + default + contact + month + poutcome +
+# duration + emp.var.rate + cons.price.idx + euribor3m + nr.employed
+
+bank %>%
+  select(c(y, job, default, contact, month, poutcome)) %>%
+  ggpairs(aes())
+#job*duration looks useful
+bank %>%
+  ggplot(aes(x=job, y=duration, color = y)) +
+  geom_boxplot()
+#default*duration looks useful
+bank %>%
+  ggplot(aes(x=default, y=duration, color = y)) +
+  geom_boxplot()
+#contact*duration looks not useful
+bank %>%
+  ggplot(aes(x=contact, y=duration, color = y)) +
+  geom_boxplot()
+#month*duration looks useful
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+#poutcome*duration looks not useful
+bank %>%
+  ggplot(aes(x=poutcome, y=duration, color = y)) +
+  geom_boxplot()
+#nr.employed
+#job*duration looks useful
+bank %>%
+  ggplot(aes(x=job, y=duration, color = y)) +
+  geom_boxplot()
+#default*duration looks useful
+bank %>%
+  ggplot(aes(x=default, y=duration, color = y)) +
+  geom_boxplot()
+#contact*duration looks not useful
+bank %>%
+  ggplot(aes(x=contact, y=duration, color = y)) +
+  geom_boxplot()
+#month*duration looks useful
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+#poutcome*duration looks not useful
+bank %>%
+  ggplot(aes(x=poutcome, y=duration, color = y)) +
+  geom_boxplot()
+summary(model.main)
 
 #train test split
+#put yes and no into separate dataframes
 yeses = bank[which(bank$y=="yes"),]
 nos = bank[which(bank$y=="no"),]
 
-require(caret)
+library(caret)
 #make 8 folds and use the entire yeses as train and test for all folds?
 folds <- createFolds(nos$y, k = 8)
 str(folds)
@@ -41,4 +160,24 @@ folds_yes <- createFolds(yeses$y, k=2)
 train2 = rbind(nos[folds_no$Fold2,], yeses[folds_yes$Fold1,])
 test2 = rbind(nos[-folds_no$Fold2,], yeses[-folds_yes$Fold2,])
 
+folds_yes <- createFolds(yeses$y, k=2)
+train3 = rbind(nos[folds_no$Fold3,], yeses[folds_yes$Fold1,])
+test3 = rbind(nos[-folds_no$Fold3,], yeses[-folds_yes$Fold2,])
 
+folds_yes <- createFolds(yeses$y, k=2)
+train4 = rbind(nos[folds_no$Fold2,], yeses[folds_yes$Fold1,])
+test4 = rbind(nos[-folds_no$Fold2,], yeses[-folds_yes$Fold2,])
+
+
+#lda exploration
+library(GGally)
+bank %>%
+  ggpairs(aes(color = y))
+
+bank_lda <- lda(Response ~ X1 + X2, data = bank)
+prd <- as.numeric(predict(mylda, newdata = nd)$class)
+
+plot(full[, 1:2], col = full$Response, main="Shift in X2")
+points(mylda$means, pch = "+", cex = 2, col = c("black", "red"))
+contour(x = nd.x, y = nd.y, z = matrix(prd, nrow = np, ncol = np), 
+        levels = c(1, 2), add = TRUE, drawlabels = FALSE)
