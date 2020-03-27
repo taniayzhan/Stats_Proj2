@@ -46,12 +46,15 @@ library(mvtnorm)
 library(class)
 library(caret)
 library(e1071)
+
+library(ResourceSelection)
+library(car)
 ```
 
 ## Load the data
 
 ```{r }
-setwd("C:/Users/BelajiAvvaru/Desktop/Docs/SMU/MSDS 6372/Project 2/")
+setwd("C:/Users/BelajiAvvaru/Desktop/Project 2/")
 #bankdata<- read.csv(file.choose())
 bankdata<-read.csv("bank-additional-full.csv",header=T, sep=";")
 head(bankdata)
@@ -389,6 +392,7 @@ aggregate(data.frame(count = bankdata$pdays), list(value = bankdata$pdays), leng
 
 ```
 ## most of the observations has value of 999 which mean these customers never contacted in the past.
+## we can create two categories for this variable, first with 999 (customer never contacted) and second with other (customer contacted at least once). We can get difference among yes and no proportions between categories
 
 ```{r }
 ## Summary on previous variable. How many number of contacts performed before this campaign 
@@ -402,6 +406,7 @@ aggregate(data.frame(count = bankdata$previous), list(value = bankdata$previous)
 
 ```
 ## The minimum and maximum values are 0 and 7. Most of the obserations with 0 value mean the customers never contacted in the past.
+## we can create three categories for this variable, first with 0 (customer never contacted), second with 1 (customer contacted one time) and third with more than one. We can get difference among yes and no proportions between categories
 
 ```{r }
 ## Summary on emp.var.rate variable. We can remove this variable from our analysis because of multicolliniarity 
@@ -643,30 +648,68 @@ plot(seq(1,numks,1),MeanAcc, type = "l")
 ```
 
 
-#### KNN model
-
 #### Creating a balanced dataset
 ### First of all let's create a new dataset with our class balanced with oversampling and also with undersampling 
 ## Splitting the data into training and test datasets (80-20 split)
 
 ```{r}
-bank_downsample <- downSample(x = bankdata[, -ncol(bankdata)], y = bankdata$y)
-summary(bank_downsample$Class) 
+# dataset with "no"
+bankdata_no = bankdata[which(bankdata$y=="no"),]
+# dataset with "yes"
+bankdata_yes = bankdata[which(bankdata$y=="yes"),]
 
-bank_upsample <- upSample(x = bankdata[, -ncol(bankdata)], y = bankdata$y)
-summary(bank_upsample$Class)
+splitPerc = .7 #Training / Test split Percentage
 
-downindex <- createDataPartition(bank_downsample$Class, p = 0.8, list=FALSE)
+# Training / Test split of "no" dataset
+noIndices = sample(1:dim(bankdata_no)[1],round(splitPerc * dim(bankdata_no)[1]))
+train_no = bankdata_no[noIndices,]
+test_no = bankdata_no[-noIndices,]
 
-train_bankdata_down <- bank_downsample[downindex,]
-test_bankdata_down <- bank_downsample[-downindex,]
+# Training / Test split of "yes" dataset
+yesIndices = sample(1:dim(bankdata_yes)[1],round(splitPerc * dim(bankdata_yes)[1]))
+train_yes = bankdata_yes[yesIndices,]
+test_yes = bankdata_yes[-yesIndices,]
 
-upindex <- createDataPartition(bank_upsample$Class, p = 0.8, list=FALSE)
+# Combine training "no" and "yes"
+bank_train = rbind(train_no, train_yes)
 
-train_bankdata_up <- bank_upsample[upindex,]
-test_bankdata_up <- bank_upsample[-upindex,]
+# Combine test "no" and "yes"
+bank_test = rbind(test_no, test_yes)
+
+# upsampling training dataset
+bank_train_upsample <- upSample(x = bank_train[, -ncol(bank_train)], y = bank_train$y)
+colnames(bank_train_upsample)[21] <- "y"
+summary(bank_train_upsample$y)
+
+# remove bservations with "unknown" in the "Loan" variable
+bank_train_upsample = bank_train_upsample[-(which(bank_train_upsample$loan=="unknown")), ]
+
+
+model.main<-glm(y ~ . , data=bank_train_upsample,family = binomial(link="logit"))
+(vif(model.main)[,3])^2
+
+## Below variables has VIF more than 10 
+## nr.employed - 145.027646
+## euribor3m    - 144.159591
+## emp.var.rate - 132.439592
+## cons.price.idx - 55.437501
+
+model.main1<-glm(y ~ age+job+marital+education+default+housing+loan+contact+month+day_of_week+duration+campaign+pdays+previous+poutcome+ cons.conf.idx, data=bank_train_upsample,family = binomial(link="logit"))
+
+(vif(model.main1)[,3])^2
+summary(model.main1)
+
+exp(cbind("Odds ratio" = coef(model.main1), confint.default(model.main1, level = 0.95)))
 
 ```
 
+
+## parameter interpretation
+
+# age : Holding all other explanatory variables fixed, odds of a client subscribing a term-deposit is 1.003 times higher than a client 1 year younger. The 95% confidence interval is [1.0001,1.006]. 
+
+# job (admin vs blue-collar) : Holding all other explanatory variables fixed, The odds ratio of subscribing to a term-deposit for clients with admin job title relative to clients who are blue collar job tittle is 0.636. The 95% confidence interval is [0.575, 0.702]. 
+
+# Marital (divorced vs single) : Holding all other explanatory variables fixed, The odds ratio of subscribing to a term-deposit for divorced clients relative to single clients is 1.323. The 95% confidence interval is [1.201, 1.458]. 
 
 
