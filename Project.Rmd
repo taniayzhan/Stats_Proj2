@@ -1,0 +1,171 @@
+---
+title: "Project"
+author: "Balaji Avvaru, Tina Pai, Yang Zhang"
+date: "3/27/2020"
+output: html_document
+---
+
+Load libraries
+```{r setup, include=FALSE}
+#--- DOCUMENT SETUP ---
+#load libraries
+library(tidyverse)
+library(GGally)
+```
+
+Overview of bank data
+```{r data}
+#--- DATA SETUP ---
+#import data
+bank = read.csv("data/bank-additional-full.csv",sep=";")
+
+#see the data lay of the land. There's a lot more No's than Yes's
+nrow(bank)
+ncol(bank)
+str(bank)
+head(bank)
+
+#checking for missing data-- this has no missing data
+summary(bank)
+colSums(is.na(bank))
+```
+
+
+Make functions for cross validation
+```{r cv, echo=FALSE}
+#--- CROSS VALIDATION SETUP ---
+
+#creates a train test split with upsampling train data for balance
+split_train_test <- function(bankdata) {
+  # dataset with "no"
+  bankdata_no = bankdata[which(bankdata$y=="no"),]
+  # dataset with "yes"
+  bankdata_yes = bankdata[which(bankdata$y=="yes"),]
+  
+  splitPerc = .7 #Training / Test split Percentage
+  
+  # Training / Test split of "no" dataset
+  noIndices = sample(1:dim(bankdata_no)[1],round(splitPerc * dim(bankdata_no)[1]))
+  train_no = bankdata_no[noIndices,]
+  test_no = bankdata_no[-noIndices,]
+  
+  # Training / Test split of "yes" dataset
+  yesIndices = sample(1:dim(bankdata_yes)[1],round(splitPerc * dim(bankdata_yes)[1]))
+  train_yes = bankdata_yes[yesIndices,]
+  test_yes = bankdata_yes[-yesIndices,]
+  
+  # Combine training "no" and "yes"
+  bank_train = rbind(train_no, train_yes)
+  
+  # Combine test "no" and "yes"
+  bank_test = rbind(test_no, test_yes)
+  
+  # upsampling training dataset
+  bank_train_upsample <- upSample(x = bank_train[, -ncol(bank_train)], y = bank_train$y)
+  colnames(bank_train_upsample)[21] <- "y"
+  summary(bank_train_upsample$y)
+  
+  return(list(bank_train_upsample, bank_test))
+}
+
+#gives the average accuracy, sensitivity, and specificity over 5 train-test splits
+#for logistic regression model
+get_test_metrics <- function(data, formula, thresh){
+  accuracies <- c()
+  sensitivities <- c()
+  specificities <- c()
+  for(i in 1:5){
+    split_data <- split_train_test(data)
+    train <- split_data[[1]]
+    test <- split_data[[2]]
+    
+    model <- glm(formula, data=train,family = binomial(link="logit"))
+    pred_probs <- predict(model, test, type="response")
+    pred_yns <- factor(ifelse(pred_probs>thresh, "yes", "no"))
+    
+    cm <- confusionMatrix(table(pred_yns, test$y))
+    accuracies <- c(accuracies, cm$overall[1])
+    sensitivities <- c(sensitivities, cm$byClass[1])
+    specificities <- c(specificities, cm$byClass[2])
+  }
+  acc = mean(accuracies)
+  sens = mean(sensitivities)
+  specs = mean(specificities)
+  result = list(acc, sens, specs)
+  names(result) = c("Accuracy", "Sensitivity", "Specificity")
+  return(result)
+}
+
+
+```
+
+Simple logistic regression, selecting variables manually and with forward selection
+```{r simplelrm}
+
+#--- MODELING | simple logistic regression ---
+
+#starting with just everything
+model.main<-glm(y ~ ., data=bank,family = binomial(link="logit"))
+head(model.main$fitted.values)
+summary(model.main)
+
+#see accuracy metrics for this model, at threshold of .5 for mapping yes/no
+m_everything <- get_test_metrics(bank, y ~ ., .5)
+m_everything
+
+#trying with manual variable selection based on what visually looked relevant
+m_manual <- get_test_metrics(bank, y ~ job + default + contact + month + poutcome + duration + emp.var.rate + cons.price.idx + euribor3m + nr.employed, .5)
+m_manual
+
+
+#forward selection to see what it chooses
+model.null<-glm(y ~ 1, data=bank,family = binomial(link="logit"))
+model.forward <- step(model.null,
+                   scope = list(upper=model.main),
+                   direction="forward",
+                   test="Chisq",
+                   data=bank)
+
+coef(model.forward)
+m_forward <- get_test_metrics(bank, y~duration + nr.employed + month + poutcome + emp.var.rate + 
+                                cons.price.idx + job + contact + euribor3m + default + day_of_week + 
+                                pdays + campaign + cons.conf.idx, .5)
+m_forward
+
+```
+
+Look at accuracy metrics and how they change across various thresholds for yes/no classification
+```{r metrics}
+
+#--- EVALUATING METRICS ---
+
+#finding the best threshold for yes/no
+thresholds <- seq(0.02, .6, by=.02)
+accuracies <- c()
+sensitivities <- c()
+specificities <- c()
+for(i in thresholds){
+  m <- get_test_metrics(bank, y~duration + nr.employed + month + poutcome + emp.var.rate + 
+                                  cons.price.idx + job + contact + euribor3m + default + day_of_week + 
+                                  pdays + campaign + cons.conf.idx, i)
+  accuracies <- c(accuracies, m$Accuracy)
+  sensitivities <- c(sensitivities, m$Sensitivity)
+  specificities <- c(specificities, m$Specificity)
+}
+
+accuracies
+sensitivities
+specificities
+
+metrics <- data.frame(thresholds,accuracies,sensitivities,specificities)
+metrics_long <- metrics %>%
+  gather(key=metric, percent, accuracies:specificities)
+
+#plot the accuracy, sensitivity, and specificity over the thresholds; between .1-.2 seems decent to me
+metrics_long %>%
+  ggplot(aes(x=thresholds, y=percent, color = metric)) +
+  geom_point() +
+  ggtitle("Accuracy, Sensitivity, and Specificity at Thresholds")
+
+```
+
