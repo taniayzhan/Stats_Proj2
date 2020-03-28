@@ -1,9 +1,11 @@
 #tina's code
 
+#--- DOCUMENT SETUP ---
 #load libraries
 library(tidyverse)
 library(GGally)
 
+#--- DATA SETUP ---
 #import data
 bank = read.csv("data/bank-additional-full.csv",sep=";")
 
@@ -15,51 +17,115 @@ head(bank)
 summary(bank)
 colSums(is.na(bank))
 
+#--- CROSS VALIDATION SETUP ---
+
+#creates a train test split with upsampling train data for balance
+split_train_test <- function(bankdata) {
+  # dataset with "no"
+  bankdata_no = bankdata[which(bankdata$y=="no"),]
+  # dataset with "yes"
+  bankdata_yes = bankdata[which(bankdata$y=="yes"),]
+  
+  splitPerc = .7 #Training / Test split Percentage
+  
+  # Training / Test split of "no" dataset
+  noIndices = sample(1:dim(bankdata_no)[1],round(splitPerc * dim(bankdata_no)[1]))
+  train_no = bankdata_no[noIndices,]
+  test_no = bankdata_no[-noIndices,]
+  
+  # Training / Test split of "yes" dataset
+  yesIndices = sample(1:dim(bankdata_yes)[1],round(splitPerc * dim(bankdata_yes)[1]))
+  train_yes = bankdata_yes[yesIndices,]
+  test_yes = bankdata_yes[-yesIndices,]
+  
+  # Combine training "no" and "yes"
+  bank_train = rbind(train_no, train_yes)
+  
+  # Combine test "no" and "yes"
+  bank_test = rbind(test_no, test_yes)
+  
+  # upsampling training dataset
+  bank_train_upsample <- upSample(x = bank_train[, -ncol(bank_train)], y = bank_train$y)
+  colnames(bank_train_upsample)[21] <- "y"
+  summary(bank_train_upsample$y)
+  
+  return(list(bank_train_upsample, bank_test))
+}
+
+#gives the average accuracy, sensitivity, and specificity over 5 train-test splits
+#for logistic regression model
+get_test_metrics <- function(data, formula, thresh){
+  accuracies <- c()
+  sensitivities <- c()
+  specificities <- c()
+  for(i in 1:5){
+    split_data <- split_train_test(data)
+    train <- split_data[[1]]
+    test <- split_data[[2]]
+    
+    model <- glm(formula, data=train,family = binomial(link="logit"))
+    pred_probs <- predict(model, test, type="response")
+    pred_yns <- factor(ifelse(pred_probs>thresh, "yes", "no"))
+    
+    cm <- confusionMatrix(table(pred_yns, test$y))
+    accuracies <- c(accuracies, cm$overall[1])
+    sensitivities <- c(sensitivities, cm$byClass[1])
+    specificities <- c(specificities, cm$byClass[2])
+  }
+  acc = mean(accuracies)
+  sens = mean(sensitivities)
+  specs = mean(specificities)
+  result = list(acc, sens, specs)
+  names(result) = c("Accuracy", "Sensitivity", "Specificity")
+  return(result)
+}
+
+
+
 #--- MODELING | simple logistic regression ---
 
 #starting with just everything
 model.main<-glm(y ~ ., data=bank,family = binomial(link="logit"))
+head(model.main$fitted.values)
 summary(model.main)
 
-#check odds ratio
-exp(cbind("Odds ratio" = coef(model.main), confint.default(model.main, level = 0.95)))
+#see accuracy metrics for this model, at threshold of .5 for mapping yes/no
+m_everything <- get_test_metrics(bank, y ~ ., .5)
+m_everything
 
-#see the fitted values are a probability between 0 and 1
-head(model.main$fitted.values)
+#trying with manual variable selection based on what visually looked relevant
+m_manual <- get_test_metrics(bank, y ~ job + default + contact + month + poutcome + duration + emp.var.rate + cons.price.idx + euribor3m + nr.employed, .5)
+m_manual
+
 
 #forward selection to see what it chooses
 model.null<-glm(y ~ 1, data=bank,family = binomial(link="logit"))
-model.step <- step(model.null,
-     scope = list(upper=model.main),
-     direction="forward",
-     test="Chisq",
-     data=bank)
+model.forward <- step(model.null,
+                   scope = list(upper=model.main),
+                   direction="forward",
+                   test="Chisq",
+                   data=bank)
 
-summary(model.step)
+coef(model.forward)
+m_forward <- get_test_metrics(bank, y~duration + nr.employed + month + poutcome + emp.var.rate + 
+                                cons.price.idx + job + contact + euribor3m + default + day_of_week + 
+                                pdays + campaign + cons.conf.idx, .5)
+m_forward
 
-#--- EVALUATING MODEL ---
-
-#convert fitted values to yes/no on a threshold of .5
-model.step$preds <- factor(ifelse(model.step$fitted.values>.5, "yes", "no"))
-head(model.step$fitted.values)
-head(model.step$preds)
-model.main$preds <- factor(ifelse(model.main$fitted.values>.5, "yes", "no"))
-
-#confusion matrix 
-confusionMatrix(table(model.main$preds, bank$y))
-confusionMatrix(table(model.step$preds, bank$y))
+#--- EVALUATING METRICS ---
 
 #finding the best threshold for yes/no
-thresholds <- seq(0.1, .6, by=.02)
+thresholds <- seq(0.02, .6, by=.02)
 accuracies <- c()
 sensitivities <- c()
 specificities <- c()
 for(i in thresholds){
-  model.step$preds <- factor(ifelse(model.step$fitted.values>i, "yes", "no"))
-  cm <- confusionMatrix(table(model.step$preds, bank$y))
-  accuracies <- c(accuracies, cm$overall[1])
-  sensitivities <- c(sensitivities, cm$byClass[1])
-  specificities <- c(specificities, cm$byClass[2])
+  m <- get_test_metrics(bank, y~duration + nr.employed + month + poutcome + emp.var.rate + 
+                                  cons.price.idx + job + contact + euribor3m + default + day_of_week + 
+                                  pdays + campaign + cons.conf.idx, i)
+  accuracies <- c(accuracies, m$Accuracy)
+  sensitivities <- c(sensitivities, m$Sensitivity)
+  specificities <- c(specificities, m$Specificity)
 }
 
 accuracies
@@ -75,6 +141,7 @@ metrics_long %>%
   ggplot(aes(x=thresholds, y=percent, color = metric)) +
   geom_point() +
   ggtitle("Accuracy, Sensitivity, and Specificity at Thresholds")
+
 
 
 #--- MODELING | adding complexity ---
@@ -133,71 +200,6 @@ bank %>%
   geom_boxplot()
 summary(model.main)
 
-#train test split
-split_train_test <- function(bankdata) {
-  # dataset with "no"
-  bankdata_no = bankdata[which(bankdata$y=="no"),]
-  # dataset with "yes"
-  bankdata_yes = bankdata[which(bankdata$y=="yes"),]
-  
-  splitPerc = .7 #Training / Test split Percentage
-  
-  # Training / Test split of "no" dataset
-  noIndices = sample(1:dim(bankdata_no)[1],round(splitPerc * dim(bankdata_no)[1]))
-  train_no = bankdata_no[noIndices,]
-  test_no = bankdata_no[-noIndices,]
-  
-  # Training / Test split of "yes" dataset
-  yesIndices = sample(1:dim(bankdata_yes)[1],round(splitPerc * dim(bankdata_yes)[1]))
-  train_yes = bankdata_yes[yesIndices,]
-  test_yes = bankdata_yes[-yesIndices,]
-  
-  # Combine training "no" and "yes"
-  bank_train = rbind(train_no, train_yes)
-  
-  # Combine test "no" and "yes"
-  bank_test = rbind(test_no, test_yes)
-  
-  # upsampling training dataset
-  bank_train_upsample <- upSample(x = bank_train[, -ncol(bank_train)], y = bank_train$y)
-  colnames(bank_train_upsample)[21] <- "y"
-  summary(bank_train_upsample$y)
-  
-  return(list(bank_train_upsample, bank_test))
-}
-
-#takes the average accuracy, sensitivity, and specificity over 5 train-test splits
-get_test_metrics <- function(data, formula, thresh){
-  accuracies <- c()
-  sensitivities <- c()
-  specificities <- c()
-  for(i in 1:5){
-    split_data <- split_train_test(data)
-    train <- split_data[[1]]
-    test <- split_data[[2]]
-    
-    model <- glm(formula, data=train,family = binomial(link="logit"))
-    pred_probs <- predict(model, test, type="response")
-    pred_yns <- factor(ifelse(pred_probs>thresh, "yes", "no"))
-    
-    cm <- confusionMatrix(table(pred_yns, test$y))
-    accuracies <- c(accuracies, cm$overall[1])
-    sensitivities <- c(sensitivities, cm$byClass[1])
-    specificities <- c(specificities, cm$byClass[2])
-  }
-  acc = mean(accuracies)
-  sens = mean(sensitivities)
-  specs = mean(specificities)
-  result = list(acc, sens, specs)
-  names(result) = c("Accuracy", "Sensitivity", "Specificity")
-  return(result)
-}
-
-#job + default + contact + month + poutcome +
-  # duration + emp.var.rate + cons.price.idx + euribor3m + nr.employed
-m <- get_test_metrics(bank, y ~ duration + emp.var.rate + cons.price.idx + euribor3m + nr.employed,.2)
-m
-summary(m)
 #OLD DUMP
 #put yes and no into separate dataframes
 yeses = bank[which(bank$y=="yes"),]
