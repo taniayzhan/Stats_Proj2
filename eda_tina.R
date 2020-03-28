@@ -134,6 +134,71 @@ bank %>%
 summary(model.main)
 
 #train test split
+split_train_test <- function(bankdata) {
+  # dataset with "no"
+  bankdata_no = bankdata[which(bankdata$y=="no"),]
+  # dataset with "yes"
+  bankdata_yes = bankdata[which(bankdata$y=="yes"),]
+  
+  splitPerc = .7 #Training / Test split Percentage
+  
+  # Training / Test split of "no" dataset
+  noIndices = sample(1:dim(bankdata_no)[1],round(splitPerc * dim(bankdata_no)[1]))
+  train_no = bankdata_no[noIndices,]
+  test_no = bankdata_no[-noIndices,]
+  
+  # Training / Test split of "yes" dataset
+  yesIndices = sample(1:dim(bankdata_yes)[1],round(splitPerc * dim(bankdata_yes)[1]))
+  train_yes = bankdata_yes[yesIndices,]
+  test_yes = bankdata_yes[-yesIndices,]
+  
+  # Combine training "no" and "yes"
+  bank_train = rbind(train_no, train_yes)
+  
+  # Combine test "no" and "yes"
+  bank_test = rbind(test_no, test_yes)
+  
+  # upsampling training dataset
+  bank_train_upsample <- upSample(x = bank_train[, -ncol(bank_train)], y = bank_train$y)
+  colnames(bank_train_upsample)[21] <- "y"
+  summary(bank_train_upsample$y)
+  
+  return(list(bank_train_upsample, bank_test))
+}
+
+#takes the average accuracy, sensitivity, and specificity over 5 train-test splits
+get_test_metrics <- function(data, formula, thresh){
+  accuracies <- c()
+  sensitivities <- c()
+  specificities <- c()
+  for(i in 1:5){
+    split_data <- split_train_test(data)
+    train <- split_data[[1]]
+    test <- split_data[[2]]
+    
+    model <- glm(formula, data=train,family = binomial(link="logit"))
+    pred_probs <- predict(model, test, type="response")
+    pred_yns <- factor(ifelse(pred_probs>thresh, "yes", "no"))
+    
+    cm <- confusionMatrix(table(pred_yns, test$y))
+    accuracies <- c(accuracies, cm$overall[1])
+    sensitivities <- c(sensitivities, cm$byClass[1])
+    specificities <- c(specificities, cm$byClass[2])
+  }
+  acc = mean(accuracies)
+  sens = mean(sensitivities)
+  specs = mean(specificities)
+  result = list(acc, sens, specs)
+  names(result) = c("Accuracy", "Sensitivity", "Specificity")
+  return(result)
+}
+
+#job + default + contact + month + poutcome +
+  # duration + emp.var.rate + cons.price.idx + euribor3m + nr.employed
+m <- get_test_metrics(bank, y ~ duration + emp.var.rate + cons.price.idx + euribor3m + nr.employed,.2)
+m
+summary(m)
+#OLD DUMP
 #put yes and no into separate dataframes
 yeses = bank[which(bank$y=="yes"),]
 nos = bank[which(bank$y=="no"),]
@@ -148,6 +213,7 @@ train2 = rbind(nos[folds$Fold2,],yeses)
 test2 = rbind(nos[-folds$Fold2,], yeses)
 
 #make 10 folds and use random half of yeses as train and test for each fold?
+
 folds_no <- createFolds(nos$y, k = 10)
 str(folds_no)
 folds_yes <- createFolds(yeses$y, k=2)
