@@ -155,14 +155,94 @@ metrics_long %>%
 
 
 #--- MODELING | adding complexity ---
+
 model.main$terms
 summary(model.step)
+
+#downsample
+down_size <- downSample(x = bank[, -ncol(bank)], y = bank$y)
+colnames(down_size)[21] <- "y"
+table(down_size$y)
+
+#duration*nr.employed looks significant
+model.main<-glm(y ~ duration * nr.employed, data=down_size,family = binomial(link="logit"))
+summary(model.main)
+
+#duration*month not that useful
+model.main<-glm(y ~ duration * month, data=down_size,family = binomial(link="logit"))
+summary(model.main)
+
+#duration*poutcome not that useful
+model.main<-glm(y ~ duration * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model.main)
+
+#duration*emp.var.rate is significant
+model.main<-glm(y ~ duration * emp.var.rate, data=down_size,family = binomial(link="logit"))
+summary(model.main)
+
+#duration*cons.price.idx is significant
+model.main<-glm(y ~ duration * cons.price.idx, data=down_size,family = binomial(link="logit"))
+summary(model.main)
+
+#duration*job not that useful
+model.main<-glm(y ~ duration * job, data=down_size,family = binomial(link="logit"))
+summary(model.main)
+
+#duration*contact not that useful
+model.main<-glm(y ~ duration * contact, data=down_size,family = binomial(link="logit"))
+summary(model.main)
+
+#duration*euribor3m is significant
+model.main<-glm(y ~ duration * euribor3m, data=down_size,family = binomial(link="logit"))
+summary(model.main)
+
+#duration*default is significant
+model.main<-glm(y ~ duration * default, data=down_size,family = binomial(link="logit"))
+summary(model.main)
+
+#duration*day_of_week not that useful
+model.main<-glm(y ~ duration * day_of_week, data=down_size,family = binomial(link="logit"))
+summary(model.main)
+
+#duration*pdays def not useful
+model.main<-glm(y ~ duration * pdays, data=down_size,family = binomial(link="logit"))
+summary(model.main)
+
+#duration*campaigns is significant
+model.main<-glm(y ~ duration * campaign, data=down_size,family = binomial(link="logit"))
+s <- summary(model.main)
+s$coefficients[4,4]
+
+
+combos <- combn(c("duration","nr.employed" , "month", "poutcome", "emp.var.rate",
+                  "cons.price.idx", "job", "contact", "euribor3m", "default", "day_of_week", 
+                         "pdays", "campaign", "cons.conf.idx"), 2, FUN = NULL, simplify = TRUE)
+combos[,1]
+n = length(combos[1,])
+var_1 = c()
+var_2 = c()
+interaction_ps = c()
+for(i in 1:n){
+  print(i)
+  model.main<-glm(y ~ eval(parse(text = combos[1,i])) * eval(parse(text = combos[2,i])), data=down_size,family = binomial(link="logit"))
+  s <- summary(model.main)
+  var_1 = c(var_1, combos[1,i])
+  var_2 = c(var_2, combos[2,i])
+  interaction_ps = c(interaction_ps, s$coefficients[4,4])
+}
+interaction_df = data.frame(var_1, var_2, interaction_ps)
+head(interaction_df)
+interaction_df %>%
+  filter(interaction_ps < .0001)
+
 
 model.main<-glm(y ~ duration * nr.employed + month + poutcome + emp.var.rate + 
                   cons.price.idx + job + contact + euribor3m + default + day_of_week + 
                   pdays + campaign + cons.conf.idx, data=bank,family = binomial(link="logit"))
 #things I like manually: y~job + default + contact + month + poutcome +
 # duration + emp.var.rate + cons.price.idx + euribor3m + nr.employed
+
+
 
 bank %>%
   select(c(y, job, default, contact, month, poutcome)) %>%
