@@ -3,6 +3,7 @@
 #--- DOCUMENT SETUP ---
 #load libraries
 library(tidyverse)
+library(caret)
 library(GGally)
 
 #--- DATA SETUP ---
@@ -52,30 +53,35 @@ split_train_test <- function(bankdata) {
   return(list(bank_train_upsample, bank_test))
 }
 
-#gives the average accuracy, sensitivity, and specificity over 5 train-test splits
+#gives the average accuracy, sensitivity, and specificity over reps number of train-test splits
 #for logistic regression model
-get_test_metrics <- function(data, formula, thresh){
+get_test_metrics <- function(data, formula, thresh, reps){
   accuracies <- c()
   sensitivities <- c()
   specificities <- c()
-  for(i in 1:5){
+  for(i in 1:reps){
     split_data <- split_train_test(data)
     train <- split_data[[1]]
     test <- split_data[[2]]
     
     model <- glm(formula, data=train,family = binomial(link="logit"))
-    pred_probs <- predict(model, test, type="response")
+    pred_probs <- predict(model, newdata = test, type="response")
+    print(summary(pred_probs))
     pred_yns <- factor(ifelse(pred_probs>thresh, "yes", "no"))
+    print(summary(pred_yns))
     
     cm <- confusionMatrix(table(pred_yns, test$y))
     accuracies <- c(accuracies, cm$overall[1])
+    print(accuracies)
     sensitivities <- c(sensitivities, cm$byClass[1])
+    print(sensitivities)
     specificities <- c(specificities, cm$byClass[2])
+    print(specificities)
   }
   acc = mean(accuracies)
-  sens = mean(sensitivities)
-  specs = mean(specificities)
-  result = list(acc, sens, specs)
+  sen = mean(sensitivities)
+  spec = mean(specificities)
+  result = list(acc, sen, spec)
   names(result) = c("Accuracy", "Sensitivity", "Specificity")
   return(result)
 }
@@ -94,7 +100,9 @@ m_everything <- get_test_metrics(bank, y ~ ., .5)
 m_everything
 
 #trying with manual variable selection based on what visually looked relevant
-m_manual <- get_test_metrics(bank, y ~ job + default + contact + month + poutcome + duration + emp.var.rate + cons.price.idx + euribor3m + nr.employed, .5)
+m_manual <- get_test_metrics(bank, y ~ job + default + contact + month + 
+                               poutcome + duration + emp.var.rate + cons.price.idx +
+                               euribor3m + nr.employed, .2, 2)
 m_manual
 
 
@@ -116,23 +124,25 @@ m_forward
 
 #finding the best threshold for yes/no
 thresholds <- seq(0.02, .6, by=.02)
-accuracies <- c()
-sensitivities <- c()
-specificities <- c()
+accs <- c()
+sens <- c()
+specs <- c()
 for(i in thresholds){
+  print("i", i)
+  print(i)
   m <- get_test_metrics(bank, y~duration + nr.employed + month + poutcome + emp.var.rate + 
                                   cons.price.idx + job + contact + euribor3m + default + day_of_week + 
-                                  pdays + campaign + cons.conf.idx, i)
-  accuracies <- c(accuracies, m$Accuracy)
-  sensitivities <- c(sensitivities, m$Sensitivity)
-  specificities <- c(specificities, m$Specificity)
+                                  pdays + campaign + cons.conf.idx, i, 2)
+  accs <- c(accs, m$Accuracy)
+  sens <- c(sens, m$Sensitivity)
+  specs <- c(specs, m$Specificity)
 }
 
-accuracies
-sensitivities
-specificities
+accs
+sens
+specs
 
-metrics <- data.frame(thresholds,accuracies,sensitivities,specificities)
+metrics <- data.frame(thresholds,accs,sens,specs)
 metrics_long <- metrics %>%
   gather(key=metric, percent, accuracies:specificities)
 
@@ -159,7 +169,7 @@ bank %>%
   ggpairs(aes())
 #job*duration looks useful
 bank %>%
-  ggplot(aes(x=job, y=duration, color = y)) +
+  ggplot(aes(x=job, y=log(duration), color = y)) +
   geom_boxplot()
 #default*duration looks useful
 bank %>%
