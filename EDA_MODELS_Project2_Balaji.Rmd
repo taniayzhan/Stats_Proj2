@@ -25,7 +25,7 @@ library(ggmosaic)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
-library(SDMTools)
+#library(SDMTools)
 library(readr)
 library(digest)
 library(ISLR)
@@ -39,7 +39,7 @@ library(mice)
 library(corrgram)
 library(car)
 library(tidyverse)
-library(limma)
+#library(limma)
 library(gridExtra)
 library(MASS)
 library(mvtnorm)
@@ -54,7 +54,7 @@ library(car)
 ## Load the data
 
 ```{r }
-setwd("C:/Users/BelajiAvvaru/Desktop/Project 2/")
+setwd("C:/Users/BelajiAvvaru/Desktop/MSDS 6372/Project 2/")
 #bankdata<- read.csv(file.choose())
 bankdata<-read.csv("bank-additional-full.csv",header=T, sep=";")
 head(bankdata)
@@ -489,46 +489,7 @@ bankdata_new = bankdata_new %>% dplyr::select(-c('default', 'housing', 'loan', '
 
 ```
 
-## PCA with all varaibles  
-```{r}
-pc.bankdata<-prcomp(bankdata_new,scale.=TRUE)
 
-pc.scores<-pc.bankdata$x
-
-pc.scores
-
-#Adding the response column to the PC's data frame
-pc.scores<-data.frame(pc.scores)
-pc.scores$y<-bankdata$y
-
-#Use ggplot2 to plot the first few pc's
-library(ggplot2)
-ggplot(data = pc.scores, aes(x = PC1, y = PC2)) +
-  geom_point(aes(col=y), size=1)+
-  ggtitle("PCA of bank data")
-
-library(ggplot2)
-ggplot(data = pc.scores, aes(x = PC2, y = PC3)) +
-  geom_point(aes(col=y), size=1)+
-  ggtitle("PCA of bank data")
-
-```
-
-### LDA with PCA variables (all variables)
-
-````{r}
-
-mylda1 <- lda(y ~ PC1+PC2 , data = pc.scores)
-
-x1=table(predict(mylda1, type="class")$class, pc.scores$y)
-x1
-#Missclassification Error
-ME1<-(x1[2,1]+x1[1,2])/dim(pc.scores)[1]
-ME1
-#Calculating overall accuracy
-1-ME1
-
-```
 
 ### LDA with all continuous variables
 
@@ -541,21 +502,24 @@ mylda1 <- lda(y ~ . , data = bankdata_conti)
 
 x1=table(predict(mylda1, type="class")$class, bankdata_conti$y)
 x1
+
 #presicion
-x1[1,1]/sum(x1[1,1:2])
+print (c("presicion ", x1[1,1]/sum(x1[1,1:2])))
 
 #recall
-x1[1,1]/sum(x1[1:2,1])
+print (c("Recall ", x1[1,1]/sum(x1[1:2,1])))
 
 # F score
+fscore = (2*(x1[1,1]/sum(x1[1,1:2])) * (x1[1,1]/sum(x1[1:2,1])))/(x1[1,1]/sum(x1[1,1:2])) + (x1[1,1]/sum(x1[1:2,1]))
 
-(2*(x1[1,1]/sum(x1[1,1:2])) * (x1[1,1]/sum(x1[1:2,1])))/(x1[1,1]/sum(x1[1,1:2])) + (x1[1,1]/sum(x1[1:2,1]))
+print (c("F Score ", fscore))
 
 #Missclassification Error
 ME1<-(x1[2,1]+x1[1,2])/dim(bankdata_conti)[1]
-ME1
+print (c("Missclassification Error ", ME1))
+       
 #Calculating overall accuracy
-1-ME1
+print (c("Accuracy ", 1-ME1))
 
 ```
 
@@ -643,7 +607,7 @@ for(i in 1:numks)
 }
 
 MeanAcc = colMeans(masterAcc)
-
+MeanAcc
 plot(seq(1,numks,1),MeanAcc, type = "l")
 ```
 
@@ -685,6 +649,8 @@ summary(bank_train_upsample$y)
 bank_train_upsample = bank_train_upsample[-(which(bank_train_upsample$loan=="unknown")), ]
 
 
+
+
 model.main<-glm(y ~ . , data=bank_train_upsample,family = binomial(link="logit"))
 (vif(model.main)[,3])^2
 
@@ -701,6 +667,8 @@ summary(model.main1)
 
 exp(cbind("Odds ratio" = coef(model.main1), confint.default(model.main1, level = 0.95)))
 
+confusion_matrix(model.main1,bank_train_upsample)
+
 ```
 
 
@@ -711,5 +679,108 @@ exp(cbind("Odds ratio" = coef(model.main1), confint.default(model.main1, level =
 # job (admin vs blue-collar) : Holding all other explanatory variables fixed, The odds ratio of subscribing to a term-deposit for clients with admin job title relative to clients who are blue collar job tittle is 0.636. The 95% confidence interval is [0.575, 0.702]. 
 
 # Marital (divorced vs single) : Holding all other explanatory variables fixed, The odds ratio of subscribing to a term-deposit for divorced clients relative to single clients is 1.323. The 95% confidence interval is [1.201, 1.458]. 
+
+
+# ROC plot  with unbalanced dataset
+```{r }
+library(plotROC)
+library(caret)
+
+# Unbalanced training dataset 
+Unbal_bank_train = bank_train
+
+# remove bservations with "unknown" in the "housing" variable
+Unbal_bank_test = bank_test[-(which(bank_test$housing=="unknown")), ]
+
+unbal.model.main1<-glm(y ~ age+job+marital+education+contact+month+day_of_week+duration+campaign+pdays+previous+poutcome+ cons.conf.idx, data=Unbal_bank_train,family = binomial(link="logit"))
+
+summary(unbal.model.main1)
+
+unbal.pred_probs <- predict(unbal.model.main1, Unbal_bank_train, type="response")
+unbal.pred_yns <- factor(ifelse(unbal.pred_probs>0.5, "yes", "no"))
+unbal.cm <- confusionMatrix(table(unbal.pred_yns, Unbal_bank_train$y))
+
+unbal.cm
+
+
+unbal.pred_probs.test <- predict(unbal.model.main1, Unbal_bank_test, type="response")
+unbal.pred_yns.test <- factor(ifelse(unbal.pred_probs.test>0.5, "yes", "no"))
+unbal.cm.test <- confusionMatrix(table(unbal.pred_yns.test, Unbal_bank_test$y))
+
+unbal.cm.test
+
+unbal.df <- rbind(data.frame(predictor1 = predict(unbal.model.main1, Unbal_bank_train),
+                       known.truth = Unbal_bank_train$y,
+                       model = "Train"),
+            data.frame(predictor1 = predict(unbal.model.main1, Unbal_bank_test),
+                       known.truth = Unbal_bank_test$y,
+                       model = "Test"))
+
+
+
+# the aesthetic names are not the most intuitive
+# `d` holds the known truth
+# `m` holds the predictor values 
+
+unbal.ggroc <- ggplot(unbal.df, aes(d = known.truth, m = predictor1, color = model)) + 
+  geom_roc(n.cuts = 0) + geom_abline(intercept = 0, slope = 1, linetype='dashed') 
+
+calc_auc(unbal.ggroc)
+
+unbal.ggroc
+
+
+```
+
+
+# ROC plot  with balanced dataset
+```{r }
+library(plotROC)
+
+# remove bservations with "unknown" in the "housing" variable
+bank_test1 = bank_test[-(which(bank_test$housing=="unknown")), ]
+
+model.main1<-glm(y ~ age+job+marital+education+contact+month+housing+loan+contact+day_of_week+duration+campaign+pdays+previous+poutcome+ cons.conf.idx, data=bank_train_upsample,family = binomial(link="logit"))
+
+summary(model.main1)
+
+
+bal.pred_probs <- predict(model.main1, bank_train_upsample, type="response")
+bal.pred_yns <- factor(ifelse(bal.pred_probs>0.5, "yes", "no"))
+bal.cm <- confusionMatrix(table(bal.pred_yns, bank_train_upsample$y))
+
+bal.cm
+
+
+bal.pred_probs.test <- predict(model.main1, bank_test1, type="response")
+bal.pred_yns.test <- factor(ifelse(bal.pred_probs.test>0.5, "yes", "no"))
+bal.cm.test <- confusionMatrix(table(bal.pred_yns.test, bank_test1$y))
+
+bal.cm.test
+
+df <- rbind(data.frame(predictor = predict(model.main1, bank_train_upsample),
+                       known.truth = bank_train_upsample$y,
+                       model = "Train"),
+            data.frame(predictor = predict(model.main1, bank_test1),
+                       known.truth = bank_test1$y,
+                       model = "Test"))
+
+
+
+# the aesthetic names are not the most intuitive
+# `d` holds the known truth
+# `m` holds the predictor values 
+
+ggroc <- ggplot(df, aes(d = known.truth, m = predictor, color = model)) + 
+  geom_roc(n.cuts = 0) + geom_abline(intercept = 0, slope = 1, linetype='dashed') 
+
+calc_auc(ggroc)
+
+ggroc
+
+
+```
+
+
 
 
