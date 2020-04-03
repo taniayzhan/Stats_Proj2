@@ -23,6 +23,9 @@ library(tictoc)
 library(kableExtra)
 library(gridExtra)
 library(readr)
+library(caret)
+library(MASS)
+library(car)
 
 # import report data:
 bank <- read_delim("C:/Users/taniat470s/Desktop/SMU_course/DS6372/bank-additional/bank-additional-full.csv", delim = ";")
@@ -147,7 +150,7 @@ grid.arrange(g1,g2,g3,g4,g5,g6,g7,g8,g9,ncol = 3, nrow = 3)
 ```{r Pairs, echo=TRUE}
 bank_con <- bank %>% dplyr::select(age, duration,campaign,pdays,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed) 
 
-pairs(bank_con)
+#pairs(bank_con)
 
 table(bank$y)
 
@@ -155,7 +158,7 @@ bank_cony <- bank %>% dplyr::select(age, duration,campaign,pdays,previous,emp.va
 
 bank_cony$y <- factor(bank_cony$y)
 
-pairs(bank_cony[,-11], col=bank_cony$y)
+#pairs(bank_cony[,-11], col=bank_cony$y)
 ```
 
 ### Observations:
@@ -516,4 +519,381 @@ ME1
 1-ME1
 
 ```
+
+### QDA with all continuous variables give an accuracy of 87.7%.
+
+```{r QDA4, echo=TRUE}
+
+myqda4 <- qda(bank$y ~ . , data = bank_con2)
+
+x1=table(predict(myqda4, type="class")$class, bank$y)
+
+x1_con <- confusionMatrix(x1)
+x1_con
+
+x1_con$overall[1]
+x1_con$byClass[1]
+x1_con$byClass[2]
+
+
+```
+
+
+#### Creating a balanced dataset
+### First of all let's create a new dataset with our class balanced with oversampling and also with undersampling 
+## Splitting the data into training and test datasets (80-20 split)
+
+```{r}
+bank$y <- as.factor(bank$y)
+bankdata <- bank
+
+# dataset with "no"
+bankdata_no = bankdata[which(bankdata$y=="no"),]
+# dataset with "yes"
+bankdata_yes = bankdata[which(bankdata$y=="yes"),]
+
+splitPerc = .7 #Training / Test split Percentage
+
+# Training / Test split of "no" dataset
+noIndices = sample(1:dim(bankdata_no)[1],round(splitPerc * dim(bankdata_no)[1]))
+train_no = bankdata_no[noIndices,]
+test_no = bankdata_no[-noIndices,]
+
+# Training / Test split of "yes" dataset
+yesIndices = sample(1:dim(bankdata_yes)[1],round(splitPerc * dim(bankdata_yes)[1]))
+train_yes = bankdata_yes[yesIndices,]
+test_yes = bankdata_yes[-yesIndices,]
+
+# Combine training "no" and "yes"
+bank_train = rbind(train_no, train_yes)
+
+# Combine test "no" and "yes"
+bank_test = rbind(test_no, test_yes)
+
+# remove bservations with "unknown" in the "Loan" variable
+bank_train = bank_train[-(which(bank_train$loan=="unknown")), ]
+bank_train = bank_train[-(which(bank_train$default=="yes")), ]
+
+# upsampling training dataset
+bank_train_upsample <- upSample(x = bank_train[, -ncol(bank_train)], y = as.factor(bank_train$y))
+colnames(bank_train_upsample)[21] <- "y"
+summary(bank_train_upsample$y)
+
+# remove bservations with "unknown" in the "Loan" variable
+#bank_train_upsample = bank_train_upsample[-(which(bank_train_upsample$loan=="unknown")), ]
+
+# remove bservations with "unknown" in the "Loan" variable
+bank_test = bank_test[-(which(bank_test$loan=="unknown")), ]
+bank_test = bank_test[-(which(bank_test$default=="yes")), ]
+
+model.main<-glm(y ~ . , data=bank_train_upsample,family = binomial(link="logit"))
+(vif(model.main)[,3])^2
+
+## Below variables has VIF more than 10 
+## nr.employed - 145.027646
+## euribor3m    - 144.159591
+## emp.var.rate - 132.439592
+## cons.price.idx - 55.437501
+
+model.main1<-glm(y ~ age+job+marital+education+default+housing+loan+contact+month+day_of_week+duration+campaign+pdays+previous+poutcome+ cons.conf.idx, data=bank_train_upsample,family = binomial(link="logit"))
+
+(vif(model.main1)[,3])^2
+summary(model.main1)
+
+exp(cbind("Odds ratio" = coef(model.main1), confint.default(model.main1, level = 0.95)))
+
+```
+
+```{r}
+#--- CROSS VALIDATION SETUP ---
+
+#creates a train test split with upsampling train data for balance
+split_train_test <- function(bankdata) {
+  # dataset with "no"
+  bankdata_no = bankdata[which(bankdata$y=="no"),]
+  # dataset with "yes"
+  bankdata_yes = bankdata[which(bankdata$y=="yes"),]
+  
+  splitPerc = .7 #Training / Test split Percentage
+  
+  # Training / Test split of "no" dataset
+  noIndices = sample(1:dim(bankdata_no)[1],round(splitPerc * dim(bankdata_no)[1]))
+  train_no = bankdata_no[noIndices,]
+  test_no = bankdata_no[-noIndices,]
+  
+  # Training / Test split of "yes" dataset
+  yesIndices = sample(1:dim(bankdata_yes)[1],round(splitPerc * dim(bankdata_yes)[1]))
+  train_yes = bankdata_yes[yesIndices,]
+  test_yes = bankdata_yes[-yesIndices,]
+  
+  # Combine training "no" and "yes"
+  bank_train = rbind(train_no, train_yes)
+  
+  # Combine test "no" and "yes"
+  bank_test = rbind(test_no, test_yes)
+  
+  # upsampling training dataset
+  bank_train_upsample <- upSample(x = bank_train[, -ncol(bank_train)], y = as.factor(bank_train$y))
+  colnames(bank_train_upsample)[21] <- "y"
+  summary(bank_train_upsample$y)
+  
+  return(list(bank_train_upsample, bank_test))
+}
+
+#gives the average accuracy, sensitivity, and specificity over 5 train-test splits
+#for logistic regression model
+get_test_metrics <- function(data, formula, thresh){
+  accuracies <- c()
+  sensitivities <- c()
+  specificities <- c()
+  for(i in 1:5){
+    split_data <- split_train_test(data)
+    train <- split_data[[1]]
+    test <- split_data[[2]]
     
+    model <- glm(formula, data=train,family = binomial(link="logit"))
+    pred_probs <- predict(model, test, type="response")
+    pred_yns <- factor(ifelse(pred_probs>thresh, "yes", "no"))
+    
+    cm <- confusionMatrix(table(pred_yns, test$y))
+    accuracies <- c(accuracies, cm$overall[1])
+    sensitivities <- c(sensitivities, cm$byClass[1])
+    specificities <- c(specificities, cm$byClass[2])
+  }
+  acc = mean(accuracies)
+  sens = mean(sensitivities)
+  specs = mean(specificities)
+  result = list(acc, sens, specs)
+  names(result) = c("Accuracy", "Sensitivity", "Specificity")
+  return(result)
+}
+
+
+#see accuracy metrics for this model, at threshold of .5 for mapping yes/no
+m_everything <- get_test_metrics(bank, y ~ ., .5)
+m_everything
+
+#trying with manual variable selection based on what visually looked relevant
+m_manual <- get_test_metrics(bank, y ~ job + default + contact + month + poutcome + duration + emp.var.rate + cons.price.idx + euribor3m + nr.employed, .5)
+m_manual
+```
+
+### Observations:
+#### LDA with all variables for upsampled dataset can get an accuracy of 85.6%.
+
+```{r LDA_new, echo=TRUE}
+### LDA with all variables
+
+
+mylda_new <- lda(bank_train_upsample$y ~ . , data = bank_train_upsample)
+
+x1=table(predict(mylda_new, type="class")$class, bank_train_upsample$y)
+
+x1_con <- confusionMatrix(x1)
+x1_con
+
+x1_con$overall[1]
+x1_con$byClass[1]
+x1_con$byClass[2]
+
+# Test group confusion metric statistics
+x2=table(predict(mylda_new, bank_test, type="class")$class, bank_test$y)
+
+x2_con <- confusionMatrix(x2)
+x2_con
+
+x2_con$overall[1]
+x2_con$byClass[1]
+x2_con$byClass[2]
+
+```
+
+### Observations:
+#### LDA with selected variables for upsampled dataset can get an accuracy of 85.4%.
+
+```{r LDA_new2, echo=TRUE}
+### LDA with selected variables
+
+mylda_new2 <- lda(bank_train_upsample$y ~ job + default + contact + month + poutcome + duration + emp.var.rate + cons.price.idx + euribor3m + nr.employed, data = bank_train_upsample)
+
+x1=table(predict(mylda_new2, type="class")$class, bank_train_upsample$y)
+
+x1_con <- confusionMatrix(x1)
+x1_con
+
+x1_con$overall[1]
+x1_con$byClass[1]
+x1_con$byClass[2]
+
+# Test group confusion metric statistics
+x2=table(predict(mylda_new2, bank_test, type="class")$class, bank_test$y)
+
+x2_con <- confusionMatrix(x2)
+x2_con
+
+x2_con$overall[1]
+x2_con$byClass[1]
+x2_con$byClass[2]
+
+```
+
+### QDA with all continuous variables from upsampled dataset give an accuracy of 82.2%.
+
+```{r QDA_new, echo=TRUE}
+
+bank_upsample_con <- bank_train_upsample %>% dplyr::select(age, duration,campaign,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed,y) 
+
+myqda_new <- qda(bank_upsample_con$y ~ . , data = bank_upsample_con)
+
+x1=table(predict(myqda_new, type="class")$class, bank_upsample_con$y)
+
+x1_con <- confusionMatrix(x1)
+x1_con
+
+x1_con$overall[1]
+x1_con$byClass[1]
+x1_con$byClass[2]
+
+# Test group confusion metric statistics
+x2=table(predict(myqda_new, bank_test, type="class")$class, bank_test$y)
+
+x2_con <- confusionMatrix(x2)
+x2_con
+
+x2_con$overall[1]
+x2_con$byClass[1]
+x2_con$byClass[2]
+
+```
+
+```{r}
+bank_train_upsample_con <- bank_train_upsample %>% dplyr::select(age, duration,campaign,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed)
+
+bank_test_con <- bank_test %>% dplyr::select(age, duration,campaign,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed)
+```
+#### KNN model 
+
+```{r}
+library(class)
+
+model_knn = knn(bank_train_upsample_con,bank_test_con,bank_train_upsample$y, prob = FALSE, k = 3)
+table(model_knn,bank_test$y)
+CM_knn = confusionMatrix(table(model_knn,bank_test$y))
+CM_knn
+```
+
+```{r}
+library(caret)
+iterations = 10
+numks = 20
+
+masterAcc = matrix(nrow = iterations, ncol = numks)
+masterSen = matrix(nrow = iterations, ncol = numks)
+masterSpe = matrix(nrow = iterations, ncol = numks)
+  
+for(j in 1:iterations)
+{
+accs = data.frame(accuracy = numeric(10), k = numeric(10))
+for(i in 1:numks)
+{
+  classifications = knn(bank_train_upsample_con,bank_test_con,bank_train_upsample$y, prob = TRUE, k = i)
+  table(classifications,bank_test$y)
+  CM = confusionMatrix(table(classifications,bank_test$y))
+  masterAcc[j,i] = CM$overall[1]
+  masterSen[j,i] = CM$byClass[1]
+  masterSpe[j,i] = CM$byClass[2]
+}
+
+}
+
+MeanAcc = colMeans(masterAcc)
+
+plot(seq(1,numks,1),MeanAcc, type = "l")
+
+MeanSen = colMeans(masterSen)
+
+plot(seq(1,numks,1),MeanSen, type = "l")
+
+MeanSpe = colMeans(masterSpe)
+
+plot(seq(1,numks,1),MeanSpe, type = "l")
+```
+
+
+```{r}
+library(randomForest)
+bank_train_con <- bank_train %>% dplyr::select(age, duration,campaign,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed)
+
+## Classification Method: RandomForest
+model_rf = randomForest(bank_train_con,as.factor(bank_train$y),ntree=500)
+CM_rf = confusionMatrix(table(predict(model_rf,bank_test_con),bank_test$y))
+CM_rf
+
+## But random forest can provide with feature importance
+varImpPlot(model_rf)
+```
+
+```{r}
+
+## Classification Method: RandomForest
+model_rf2 = randomForest(bank_train_upsample_con,as.factor(bank_train_upsample$y),ntree=500)
+CM_rf2 = confusionMatrix(table(predict(model_rf2,bank_test_con),bank_test$y))
+CM_rf2
+
+## But random forest can provide with feature importance
+varImpPlot(model_rf2)
+```
+
+```{r}
+bank_train_upsample_rf <-  bank_train_upsample
+
+# Make dependent variable as a factor (categorical)
+bank_train_upsample_rf$job = as.factor(bank_train_upsample_rf$job)
+bank_train_upsample_rf$marital = as.factor(bank_train_upsample_rf$marital)
+bank_train_upsample_rf$education = as.factor(bank_train_upsample_rf$education)
+bank_train_upsample_rf$default = as.factor(bank_train_upsample_rf$default)
+bank_train_upsample_rf$housing = as.factor(bank_train_upsample_rf$housing)
+bank_train_upsample_rf$loan = as.factor(bank_train_upsample_rf$loan)
+bank_train_upsample_rf$contact = as.factor(bank_train_upsample_rf$contact)
+bank_train_upsample_rf$month = as.factor(bank_train_upsample_rf$month)
+bank_train_upsample_rf$day_of_week = as.factor(bank_train_upsample_rf$day_of_week)
+bank_train_upsample_rf$poutcome = as.factor(bank_train_upsample_rf$poutcome)
+
+bank_test_rf <-  bank_test
+
+# Make dependent variable as a factor (categorical)
+bank_test_rf$job = as.factor(bank_test$job)
+bank_test_rf$marital = as.factor(bank_test$marital)
+bank_test_rf$education = as.factor(bank_test$education)
+bank_test_rf$default = as.factor(bank_test$default)
+bank_test_rf$housing = as.factor(bank_test$housing)
+bank_test_rf$loan = as.factor(bank_test$loan)
+bank_test_rf$contact = as.factor(bank_test$contact)
+bank_test_rf$month = as.factor(bank_test$month)
+bank_test_rf$day_of_week = as.factor(bank_test$day_of_week)
+bank_test_rf$poutcome = as.factor(bank_test$poutcome)
+
+
+## Classification Method: RandomForest
+model_rf_all = randomForest(bank_train_upsample_rf[,1:20],as.factor(bank_train_upsample$y),ntree=500)
+CM_rf_all = confusionMatrix(table(predict(model_rf_all,bank_test_rf[,1:20]),bank_test$y))
+CM_rf_all
+
+## But random forest can provide with feature importance
+varImpPlot(model_rf_all)
+```
+
+```{r}
+bank_upsample_select <- bank_train_upsample_rf %>% dplyr::select(c('age', 'duration', 'campaign', 'pdays', 'previous',  'cons.price.idx', 'cons.conf.idx','euribor3m','y'))
+bank_test_select <- bank_test_rf %>% dplyr::select(c('age', 'duration', 'campaign', 'pdays', 'previous',  'cons.price.idx', 'cons.conf.idx','euribor3m','y'))
+
+## Classification Method: RandomForest
+model_rf_sel = randomForest(bank_upsample_select[,1:8],as.factor(bank_upsample_select$y),ntree=500)
+CM_rf_sel = confusionMatrix(table(predict(model_rf_sel,bank_test_select[,1:8]),bank_test_select$y))
+CM_rf_sel
+
+## But random forest can provide with feature importance
+varImpPlot(model_rf_sel)
+
+
+```
