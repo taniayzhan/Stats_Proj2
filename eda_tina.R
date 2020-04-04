@@ -232,7 +232,7 @@ for(i in 1:n){
 }
 interaction_df = data.frame(var_1, var_2, interaction_ps)
 head(interaction_df)
-interaction_df %>%
+interactions <- interaction_df %>%
   filter(interaction_ps < .0001)
 
 
@@ -242,55 +242,286 @@ model.main<-glm(y ~ duration * nr.employed + month + poutcome + emp.var.rate +
 #things I like manually: y~job + default + contact + month + poutcome +
 # duration + emp.var.rate + cons.price.idx + euribor3m + nr.employed
 
+#dim(interactions)[1]
+for(i in 1) {
+  print(interactions[i,1])
+  print(interactions[i,2])
+  #plot
+  bank %>%
+    ggplot(aes(x=eval(parse(text = interactions[i,1])), y=eval(parse(text = interactions[i,2])), color = y)) +
+    geom_boxplot() +
+    xlab(interactions[i,1]) +
+    ylab(interactions[i,2]) +
+    ggtitle("Distribution of ")
+  
+  model<-glm(y ~ duration * nr.employed, data=down_size,family = binomial(link="logit"))
+  summary(model)
+}
 
+#duration*nr.employed
+bank %>%
+  ggplot(aes(x=nr.employed, y=log(duration), color = y)) +
+  geom_boxplot()
+
+model<-glm(y ~ duration * nr.employed, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#duration*poutcome
+bank %>%
+  ggplot(aes(x=poutcome, y=log(duration), color = y)) +
+  geom_boxplot()
+
+model<-glm(y ~ duration * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#duration*emp.var.rate
+bank %>%
+  ggplot(aes(x=emp.var.rate, y=duration, color = y)) +
+  geom_boxplot()
+
+model<-glm(y ~ duration * emp.var.rate, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#duration*cons.price.idx
+bank %>%
+  ggplot(aes(x=cons.price.idx, y=duration, color = y)) +
+  geom_boxplot()
+
+model<-glm(y ~ duration * cons.price.idx, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#duration*euribor3m
+bank %>%
+  ggplot(aes(x=poutcome, y=duration, color = y)) +
+  geom_boxplot()
+
+
+#duration*default
+bank %>%
+  ggplot(aes(x=job, y=duration, color = y)) +
+  geom_boxplot()
+
+
+#duration*campaign
+bank %>%
+  ggplot(aes(x=default, y=duration, color = y)) +
+  geom_boxplot()
+
+
+#duration*cons.conf.idx
+bank %>%
+  ggplot(aes(x=contact, y=duration, color = y)) +
+  geom_boxplot
+
+#nr.employed*emp.var.rate
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ nr.employed * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#nr.employed*emp.var.rate
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ nr.employed * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#nr.employed*euribor3m
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ nr.employed * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#nr.employed*default
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ nr.employed * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#nr.employed*fons.conf.idx
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ nr.employed * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+
+#month*poutcome
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ month * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#month*poutcome
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ month * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#month*poutcome
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ month * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#month*poutcome
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ month * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#month*poutcome
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ month * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#month*poutcome
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ month * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#month*poutcome
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ month * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#month*poutcome
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ month * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#month*poutcome
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ month * poutcome, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#poutcome*
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ poutcome * emp.var.rate, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#poutcome*
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ poutcome * emp.var.rate, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#poutcome*
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ poutcome * emp.var.rate, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#poutcome*
+bank %>%
+  ggplot(aes(x=month, y=duration, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ poutcome * emp.var.rate, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#emp.var.rate*euribor3m
+bank %>%
+  ggplot(aes(x=month, y=emp.var.rate, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ poutcome * emp.var.rate, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#emp.var.rate*euribor3m
+bank %>%
+  ggplot(aes(x=month, y=emp.var.rate, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ poutcome * emp.var.rate, data=down_size,family = binomial(link="logit"))
+summary(model)
+#emp.var.rate*euribor3m
+bank %>%
+  ggplot(aes(x=month, y=emp.var.rate, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ poutcome * emp.var.rate, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#cons.price.idx*contact
+bank %>%
+  ggplot(aes(x=month, y=cons.price.idx, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ poutcome * cons.price.idx, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#cons.price.idx*contact
+bank %>%
+  ggplot(aes(x=month, y=cons.price.idx, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ poutcome * cons.price.idx, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#cons.price.idx*contact
+bank %>%
+  ggplot(aes(x=month, y=cons.price.idx, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ poutcome * cons.price.idx, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#contact*default
+bank %>%
+  ggplot(aes(x=month, y=contact, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ poutcome * contact, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#contact*
+bank %>%
+  ggplot(aes(x=month, y=contact, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ poutcome * contact, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#euribor3m*default
+bank %>%
+  ggplot(aes(x=month, y=euribor3m, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ euribor3m * contact, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#euribor3m*default
+bank %>%
+  ggplot(aes(x=month, y=euribor3m, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ euribor3m * contact, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#euribor3m*default
+bank %>%
+  ggplot(aes(x=month, y=euribor3m, color = y)) +
+  geom_boxplot()
+model<-glm(y ~ euribor3m * contact, data=down_size,family = binomial(link="logit"))
+summary(model)
+
+#OLD DUMP
 
 bank %>%
   select(c(y, job, default, contact, month, poutcome)) %>%
   ggpairs(aes())
-#job*duration looks useful
-bank %>%
-  ggplot(aes(x=job, y=log(duration), color = y)) +
-  geom_boxplot()
-#default*duration looks useful
-bank %>%
-  ggplot(aes(x=default, y=duration, color = y)) +
-  geom_boxplot()
-#contact*duration looks not useful
-bank %>%
-  ggplot(aes(x=contact, y=duration, color = y)) +
-  geom_boxplot()
-#month*duration looks useful
-bank %>%
-  ggplot(aes(x=month, y=duration, color = y)) +
-  geom_boxplot()
-#poutcome*duration looks not useful
-bank %>%
-  ggplot(aes(x=poutcome, y=duration, color = y)) +
-  geom_boxplot()
-#nr.employed
-#job*duration looks useful
-bank %>%
-  ggplot(aes(x=job, y=duration, color = y)) +
-  geom_boxplot()
-#default*duration looks useful
-bank %>%
-  ggplot(aes(x=default, y=duration, color = y)) +
-  geom_boxplot()
-#contact*duration looks not useful
-bank %>%
-  ggplot(aes(x=contact, y=duration, color = y)) +
-  geom_boxplot()
-#month*duration looks useful
-bank %>%
-  ggplot(aes(x=month, y=duration, color = y)) +
-  geom_boxplot()
-#poutcome*duration looks not useful
-bank %>%
-  ggplot(aes(x=poutcome, y=duration, color = y)) +
-  geom_boxplot()
-summary(model.main)
 
-#OLD DUMP
 #put yes and no into separate dataframes
 yeses = bank[which(bank$y=="yes"),]
 nos = bank[which(bank$y=="no"),]

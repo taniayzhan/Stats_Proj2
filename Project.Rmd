@@ -11,6 +11,7 @@ Load libraries
 #load libraries
 library(tidyverse)
 library(GGally)
+library(caret)
 ```
 
 Overview of bank data
@@ -169,3 +170,54 @@ metrics_long %>%
 
 ```
 
+Finding interaction combos
+```{r datawrangle}
+
+#downsample to balance the f test
+down_size <- downSample(x = bank[, -ncol(bank)], y = bank$y)
+colnames(down_size)[21] <- "y"
+table(down_size$y)
+
+combos <- combn(c("duration","nr.employed" , "month", "poutcome", "emp.var.rate",
+                  "cons.price.idx", "job", "contact", "euribor3m", "default", "day_of_week", 
+                         "pdays", "campaign", "cons.conf.idx"), 2, FUN = NULL, simplify = TRUE)
+combos[,1]
+n = length(combos[1,])
+var_1 = c()
+var_2 = c()
+interaction_ps = c()
+for(i in 1:n){
+  model.main<-glm(y ~ eval(parse(text = combos[1,i])) * eval(parse(text = combos[2,i])), data=down_size,family = binomial(link="logit"))
+  s <- summary(model.main)
+  var_1 = c(var_1, combos[1,i])
+  var_2 = c(var_2, combos[2,i])
+  interaction_ps = c(interaction_ps, s$coefficients[4,4])
+}
+interaction_df = data.frame(var_1, var_2, interaction_ps)
+head(interaction_df)
+interactions <- interaction_df %>%
+  filter(interaction_ps < .0001) %>%
+  mutate(var_1 = as.character(var_1)) %>%
+  mutate(var_2 = as.character(var_2))
+```
+
+Interaction Plots and Summary
+
+```{r interactionplots}
+
+for(i in 1:dim(interactions)[1]) {
+
+  #barplot of two variables blocked on y/n
+  print(bank %>%
+    ggplot(aes(y=eval(parse(text = interactions$var_1[i])), x=eval(parse(text = interactions$var_2[i])), color = y)) +
+    geom_boxplot()+
+    xlab(interactions$var_2[i]) +
+    ylab(interactions$var_2[i]) +
+    ggtitle("Distribution of ")
+  )
+  
+  #summary of p value of interaction term
+  model<-glm(y ~ interactions$var_1[i] * interactions$var_2[i], data=down_size,family = binomial(link="logit"))
+  print(summary(model))
+}
+```
