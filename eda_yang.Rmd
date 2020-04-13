@@ -706,6 +706,19 @@ x2_con$overall[1]
 x2_con$byClass[1]
 x2_con$byClass[2]
 
+pred_ldanew <- predict(mylda_new, bank_test, type = "response")$posterior
+pred_ldanew <- as.data.frame(pred_ldanew)
+
+pred_ldanew_test <- prediction(pred_ldanew[,2],bank_test$y)
+
+roc.perf3 = performance(pred_ldanew_test, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred_ldanew_test, measure = "auc")
+auc.train <- auc.train@y.values
+
+plot(roc.perf3)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+
 ```
 
 ### Observations:
@@ -735,9 +748,73 @@ x2_con$overall[1]
 x2_con$byClass[1]
 x2_con$byClass[2]
 
+pred_ldanew2 <- predict(mylda_new2, bank_test, type = "response")$posterior
+pred_ldanew2 <- as.data.frame(pred_ldanew2)
+
+pred_ldanew2_test <- prediction(pred_ldanew2[,2],bank_test$y)
+
+roc.perf1 = performance(pred_ldanew2_test, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred_ldanew2_test, measure = "auc")
+auc.train <- auc.train@y.values
+
+plot(roc.perf1)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+
 ```
 
-### QDA with all continuous variables from upsampled dataset give an accuracy of 82.2%.
+```{r PCA new, echo=TRUE}
+#bank_upsample_con_test <- bank_train_upsample %>% dplyr::select(age, duration,campaign,pdays,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed) 
+
+pc.bc3<-prcomp(bank_train_upsample_con,scale.=TRUE)
+#pc.bc3<-prcomp(bank_upsample_con_test,scale.=TRUE)
+pc.bc3.scores<-pc.bc3$x
+
+#Adding the response column to the PC's data frame
+pc.bc3.scores<-data.frame(pc.bc3.scores)
+pc.bc3.scores$y<-bank_train_upsample$y
+
+#Use ggplot2 to plot the first few pc's
+ggplot(data = pc.bc3.scores, aes(x = PC1, y = PC2)) +
+  geom_point(aes(col=y), size=1)+
+  ggtitle("PCA of Bank Dataset PC1 and PC2")
+
+ggplot(data = pc.bc3.scores, aes(x = PC2, y = PC3)) +
+  geom_point(aes(col=y), size=1)+
+  ggtitle("PCA of Bank Dataset PC2 and PC3")
+
+pc.bc3$rotation
+```
+
+#### PCA results shows 6 PCs can explain 92% of the variations
+```{r Scree3, echo=TRUE}
+par(mfrow=c(1,2))
+eigenvals<-(pc.bc3$sdev)^2
+plot(1:9,eigenvals/sum(eigenvals),type="l",main="Scree Plot",ylab="Prop. Var. Explained")
+cumulative.prop<-cumsum(eigenvals/sum(eigenvals))
+plot(1:9,cumulative.prop,type="l",main="Cumulative proportion",ylim=c(0,1))
+cumulative.prop
+```
+
+````{r LDA new3, echo=TRUE}
+
+
+mylda_new3 <- lda(bank_train_upsample$y ~ PC1+PC2+PC3+PC4+PC5+PC6 , data = pc.bc3.scores)
+
+
+# Test group confusion metric statistics
+x2=table(predict(mylda_new3, pc.bc3.scores, type="class")$class, bank_upsample_con$y)
+
+x2_con <- confusionMatrix(x2)
+x2_con
+
+x2_con$overall[1]
+x2_con$byClass[1]
+x2_con$byClass[2]
+
+```
+
+### QDA with selected continuous variables from upsampled dataset give an accuracy of 82.2%.
 
 ```{r QDA_new, echo=TRUE}
 
@@ -764,6 +841,27 @@ x2_con$overall[1]
 x2_con$byClass[1]
 x2_con$byClass[2]
 
+pred_qdanew <- predict(myqda_new, bank_test, type = "response")$posterior
+pred_qdanew <- as.data.frame(pred_qdanew)
+
+pred_qdanew_test <- prediction(pred_qdanew[,2],bank_test$y)
+
+roc.perf2 = performance(pred_qdanew_test, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred_qdanew_test, measure = "auc")
+auc.train <- auc.train@y.values
+
+plot(roc.perf2)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+
+```
+
+```{r}
+plot(roc.perf1)
+plot(roc.perf2,col="orange", add = TRUE)
+plot(roc.perf3,col="blue", add = TRUE)
+legend("bottomright",legend=c("LDA select","QDA select","LDA all"),col=c("black","orange","blue"),lty=1,lwd=1)
+abline(a=0, b= 1)
 ```
 
 ```{r}
@@ -834,6 +932,18 @@ varImpPlot(model_rf)
 ```
 
 ```{r}
+fit.pred<-predict(model_rf,newdata=bank_test_con,type="prob")
+
+pred <- prediction(fit.pred[,2], bank_test$y)
+roc.perf_rf1 = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
+plot(roc.perf_rf1)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+```
+
+```{r}
 
 ## Classification Method: RandomForest
 model_rf2 = randomForest(bank_train_upsample_con,as.factor(bank_train_upsample$y),ntree=500)
@@ -843,6 +953,19 @@ CM_rf2
 ## But random forest can provide with feature importance
 varImpPlot(model_rf2)
 ```
+
+```{r}
+fit.pred<-predict(model_rf2,newdata=bank_test_con,type="prob")
+
+pred <- prediction(fit.pred[,2], bank_test$y)
+roc.perf_rf2 = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
+plot(roc.perf_rf2)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+```
+
 
 ```{r}
 bank_train_upsample_rf <-  bank_train_upsample
@@ -884,6 +1007,19 @@ varImpPlot(model_rf_all)
 ```
 
 ```{r}
+fit.pred<-predict(model_rf_all,newdata=bank_test_rf[,1:20],type="prob")
+
+pred <- prediction(fit.pred[,2], bank_test$y)
+roc.perf_rf3 = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
+plot(roc.perf_rf3)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+```
+
+
+```{r}
 bank_upsample_select <- bank_train_upsample_rf %>% dplyr::select(c('age', 'duration', 'campaign', 'pdays', 'previous',  'cons.price.idx', 'cons.conf.idx','euribor3m','y'))
 bank_test_select <- bank_test_rf %>% dplyr::select(c('age', 'duration', 'campaign', 'pdays', 'previous',  'cons.price.idx', 'cons.conf.idx','euribor3m','y'))
 
@@ -895,5 +1031,58 @@ CM_rf_sel
 ## But random forest can provide with feature importance
 varImpPlot(model_rf_sel)
 
+
+```
+
+
+```{r}
+fit.pred<-predict(model_rf_sel,newdata=bank_test_select[,1:8],type="prob")
+
+pred <- prediction(fit.pred[,2], bank_test$y)
+roc.perf_rf4 = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
+plot(roc.perf_rf4)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+```
+
+
+```{r}
+plot(roc.perf_rf1)
+plot(roc.perf_rf2,col="orange", add = TRUE)
+plot(roc.perf_rf3,col="blue", add = TRUE)
+plot(roc.perf_rf4  ,col="green", add = TRUE)
+legend("bottomright",legend=c("RF1","RF2","RF3","RF4"),col=c("black","orange","blue","green"),lty=1,lwd=1)
+abline(a=0, b= 1)
+```
+
+```{r}
+model.main1<-glm(y ~ age+job+marital+education+contact+month+housing+loan+contact+day_of_week+duration+campaign+pdays+previous+poutcome+ cons.conf.idx, data=bank_train_upsample,family = binomial(link="logit"))
+
+bal.pred_probs <- predict(model.main1, bank_test, type="response")
+bal.pred_yns <- factor(ifelse(bal.pred_probs>0.5, "yes", "no"))
+bal.cm <- confusionMatrix(table(bal.pred_yns, bank_test$y))
+
+bal.cm
+
+#fit.pred<-predict(model.main1,newdata=bank_test,type="prob")
+
+pred <- prediction(bal.pred_probs, bank_test$y)
+roc.perf_lr = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
+plot(roc.perf_lr)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+
+```
+
+```{r}
+plot(roc.perf1)
+plot(roc.perf_rf3,col="orange", add = TRUE)
+plot(roc.perf_lr,col="blue", add = TRUE)
+legend("bottomright",legend=c("LDA","Random Forest","Logistic Regress"),col=c("black","orange","blue"),lty=1,lwd=1)
+abline(a=0, b= 1)
 
 ```
