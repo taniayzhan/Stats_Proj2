@@ -221,3 +221,115 @@ for(i in 1:dim(interactions)[1]) {
   print(summary(model))
 }
 ```
+
+Make model with interaction terms
+```{r}
+model.interaction1 <- glm(y ~ duration * nr.employed + month + poutcome + emp.var.rate + 
+                  cons.price.idx + job + contact + euribor3m + default + day_of_week + 
+                  pdays + campaign + cons.conf.idx +
+      duration*nr.employed +
+      duration*poutcome +
+        duration *  emp.var.rate +
+        duration * cons.price.idx +
+        duration * job +
+        duration * euribor3m +
+        duration * cons.conf.idx +
+     nr.employed * emp.var.rate +
+     nr.employed * euribor3m +
+    nr.employed * campaign +
+    nr.employed * cons.conf.idx +
+          month * cons.price.idx +
+          month * job +
+          month * contact +
+          month * default +
+          month * campaign +
+       poutcome * emp.var.rate +
+       poutcome * job +
+       poutcome * euribor3m +
+       poutcome * pdays +
+       poutcome * cons.conf.idx +
+   emp.var.rate * euribor3m +
+   emp.var.rate * campaign +
+   emp.var.rate * cons.conf.idx +
+ cons.price.idx * contact +
+ cons.price.idx * pdays +
+ cons.price.idx * cons.conf.idx +
+      euribor3m * campaign +
+      euribor3m * cons.conf.idx +
+        default * pdays +
+        default * campaign +
+        default * cons.conf.idx, data=bank, family="binomial")
+```
+
+see thresholds for the model
+```{r}
+#finding the best threshold for yes/no
+thresholds <- seq(0.02, .6, by=.02)
+accs <- c()
+sens <- c()
+specs <- c()
+for(i in thresholds){
+  print("i", i)
+  print(i)
+  m <- get_test_metrics(bank, y ~ duration * nr.employed + month + poutcome + emp.var.rate + 
+                  cons.price.idx + job + contact + euribor3m + default + day_of_week + 
+                  pdays + campaign + cons.conf.idx +
+      duration*nr.employed +
+      duration*poutcome +
+        duration *  emp.var.rate +
+        duration * cons.price.idx +
+        duration * job +
+        duration * euribor3m +
+        duration * cons.conf.idx +
+     nr.employed * emp.var.rate +
+     nr.employed * euribor3m +
+    nr.employed * campaign +
+    nr.employed * cons.conf.idx +
+          month * cons.price.idx +
+          month * job +
+          month * contact +
+          month * default +
+          month * campaign +
+       poutcome * emp.var.rate +
+       poutcome * job +
+       poutcome * euribor3m +
+       poutcome * pdays +
+       poutcome * cons.conf.idx +
+   emp.var.rate * euribor3m +
+   emp.var.rate * campaign +
+   emp.var.rate * cons.conf.idx +
+ cons.price.idx * contact +
+ cons.price.idx * pdays +
+ cons.price.idx * cons.conf.idx +
+      euribor3m * campaign +
+      euribor3m * cons.conf.idx +
+        default * pdays +
+        default * campaign +
+        default * cons.conf.idx, i, 2)
+  accs <- c(accs, m$Accuracy)
+  sens <- c(sens, m$Sensitivity)
+  specs <- c(specs, m$Specificity)
+}
+
+accs
+sens
+specs
+```
+
+
+Compare ROC between complex model vs simple model
+```{r}
+
+df <- rbind(data.frame(predictor = predict(model.interaction1, bank),
+                       known.truth = bank$y,
+                       model = "Complex Model"),
+            data.frame(predictor = predict(model.main, bank),
+                       known.truth = bank$y,
+                       model = "Simple Model"))
+
+ggroc <- ggplot(df, aes(d = known.truth, m = predictor, color = model)) + 
+  geom_roc(n.cuts = 0) + geom_abline(intercept = 0, slope = 1, linetype='dashed') 
+
+ggroc
+calc_auc(ggroc)
+```
