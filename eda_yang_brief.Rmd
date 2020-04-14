@@ -1,0 +1,670 @@
+---
+title: "eda_proj2_brief"
+author: "YZ"
+date: "4/12/2020"
+output:
+  html_document:
+    code_folding: "hide"
+---
+## Exploratory Analysis
+
+
+### Observations:
+#### Load in the bank-additional-full.csv dataset
+#### A total of 21 columns
+
+
+```{r setup, include=FALSE}
+library(data.table) #for %like% function
+library(xml2)
+library(purrr)
+library(lubridate)
+library(tictoc)
+library(kableExtra)
+library(gridExtra)
+library(readr)
+library(caret)
+library(MASS)
+library(car)
+library(GGally)
+library(forcats)
+library(dplyr)
+
+
+# import report data:
+bank <- read_delim("C:/Users/taniat470s/Desktop/SMU_course/DS6372/bank-additional/bank-additional-full.csv", delim = ";")
+```
+
+### Observations:
+#### Histograms of the continous variables display vary distributions.
+#### Age with a wide close-to-normal distribution leaning lightly to younger ages.
+#### Duration, campaign, previous are strongly leaning to the left, and may need a log transformation.
+#### Pdays just two values, should be considered to switch to a factor-based variable.
+#### The rest variables are quite discrete from their distribution.
+
+
+```{r Histogram, echo=TRUE}
+ggplot(data=bank[!is.na(bank$age),], aes(x=age)) +
+        geom_histogram(fill="blue", binwidth = 1) + labs(title="Age Histogram", x="Age")
+
+ggplot(data=bank[!is.na(bank$duration),], aes(x=duration)) +
+        geom_histogram(fill="blue", binwidth = 10) + labs(title="Duration Histogram", x="Duration")
+
+ggplot(data=bank[!is.na(bank$campaign),], aes(x=campaign)) +
+        geom_histogram(fill="blue", binwidth = 1) + labs(title="Campaign Histogram", x="Campaign")
+
+ggplot(data=bank[!is.na(bank$pdays),], aes(x=pdays)) +
+        geom_histogram(fill="blue", binwidth = 10) + labs(title="Pdays Histogram", x="Pdays")
+
+ggplot(data=bank[!is.na(bank$previous),], aes(x=previous)) +
+        geom_histogram(fill="blue", binwidth = 1) + labs(title="Previous Histogram", x="Previous")
+
+ggplot(data=bank[!is.na(bank$emp.var.rate),], aes(x=emp.var.rate)) +
+        geom_histogram(fill="blue", binwidth = 0.1) + labs(title="Emp.var.rate Histogram", x="Emp.var.rate")
+
+ggplot(data=bank[!is.na(bank$cons.price.idx),], aes(x=cons.price.idx)) +
+        geom_histogram(fill="blue", binwidth = 0.1) + labs(title="Cons.price.idx Histogram", x="Cons.price.idx")
+
+ggplot(data=bank[!is.na(bank$cons.conf.idx),], aes(x=cons.conf.idx)) +
+        geom_histogram(fill="blue", binwidth = 0.1) + labs(title="Cons.conf.idx Histogram", x="Cons.conf.idx")
+
+ggplot(data=bank[!is.na(bank$euribor3m),], aes(x=euribor3m)) +
+        geom_histogram(fill="blue", binwidth = 0.1) + labs(title="Euribor3m Histogram", x="Euribor3m")
+
+ggplot(data=bank[!is.na(bank$nr.employed),], aes(x=nr.employed)) +
+        geom_histogram(fill="blue", binwidth = 10) + labs(title="Nr.employed Histogram", x="Nr.employed")
+
+```
+
+### Observations:
+#### Continuous variables are plotted by contrasting y, some show obvious differences some don't.
+#### Some variables the showed differences: Duration, Emp.var.rate, Cons.price,idx, Ons.conf.idx, Euribor3m, Nr.employed 
+#### Some variables don't show obvious differences:Age, Campaign, Previous
+
+
+```{r ContrastY, echo=TRUE}
+g1<- bank %>% ggplot(aes(x=age, fill=y)) + geom_density(alpha = 0.7) + labs(title="Age Distribution colored by Term Deposit") 
+
+g2<- bank %>% ggplot(aes(x=log(duration), fill=y)) + geom_density(alpha = 0.7) + labs(title="Duration Distribution colored by Term Deposit") 
+
+g3<- bank %>% ggplot(aes(x=log(campaign), fill=y)) + geom_density(alpha = 0.7) + labs(title="Campaign Distribution colored by Term Deposit") 
+
+g4<- bank %>% ggplot(aes(x=previous, fill=y)) + geom_density(alpha = 0.7) + labs(title="Previous Distribution colored by Term Deposit") 
+
+g5<- bank %>% ggplot(aes(x=emp.var.rate, fill=y)) + geom_density(alpha = 0.7) + labs(title="Emp.var.rate Distribution colored by Term Deposit") 
+
+g6<- bank %>% ggplot(aes(x=cons.price.idx, fill=y)) + geom_density(alpha = 0.7) + labs(title="Cons.price.idx Distribution colored by Term Deposit") 
+
+g7<- bank %>% ggplot(aes(x=cons.conf.idx, fill=y)) + geom_density(alpha = 0.7) + labs(title="Ons.conf.idx Distribution colored by Term Deposit") 
+
+g8<- bank %>% ggplot(aes(x=euribor3m, fill=y)) + geom_density(alpha = 0.7) + labs(title="Euribor3m Distribution colored by Term Deposit") 
+
+g9<- bank %>% ggplot(aes(x=nr.employed, fill=y)) + geom_density(alpha = 0.7) + labs(title="Nr.employed Distribution colored by Term Deposit") 
+
+grid.arrange(g1,g2,g3,g4,g5,g6,g7,g8,g9,ncol = 3, nrow = 3)
+
+```
+
+### Observations:
+#### Unbalance Data: LDA with all exist continuous variables can get an accuracy of 90.7%.
+
+````{r LDA1, echo=TRUE}
+### LDA with all continuous variables
+library(MASS)
+
+bank_con <- bank %>% dplyr::select(age, duration,campaign,pdays,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed) 
+
+mylda1 <- lda(bank$y ~ . , data = bank_con)
+
+x1=table(predict(mylda1, type="class")$class, bank$y)
+
+x1_con <- confusionMatrix(x1)
+x1_con
+
+x1_con$overall[1]
+x1_con$byClass[1]
+x1_con$byClass[2]
+
+```
+
+
+#### Unbalance Data: QDA with all continuous variables give an accuracy of 87.7%.
+
+```{r QDA4, echo=TRUE}
+
+myqda4 <- qda(bank$y ~ . , data = bank_con)
+
+x1=table(predict(myqda4, type="class")$class, bank$y)
+
+x1_con <- confusionMatrix(x1)
+x1_con
+
+x1_con$overall[1]
+x1_con$byClass[1]
+x1_con$byClass[2]
+
+```
+
+#### Creating a balanced dataset (From Balaji)
+### First of all let's create a new dataset with our class balanced with oversampling and also with undersampling 
+## Splitting the data into training and test datasets (80-20 split)
+
+```{r}
+bank$y <- as.factor(bank$y)
+bankdata <- bank
+
+# dataset with "no"
+bankdata_no = bankdata[which(bankdata$y=="no"),]
+# dataset with "yes"
+bankdata_yes = bankdata[which(bankdata$y=="yes"),]
+
+splitPerc = .7 #Training / Test split Percentage
+
+# Training / Test split of "no" dataset
+noIndices = sample(1:dim(bankdata_no)[1],round(splitPerc * dim(bankdata_no)[1]))
+train_no = bankdata_no[noIndices,]
+test_no = bankdata_no[-noIndices,]
+
+# Training / Test split of "yes" dataset
+yesIndices = sample(1:dim(bankdata_yes)[1],round(splitPerc * dim(bankdata_yes)[1]))
+train_yes = bankdata_yes[yesIndices,]
+test_yes = bankdata_yes[-yesIndices,]
+
+# Combine training "no" and "yes"
+bank_train = rbind(train_no, train_yes)
+
+# Combine test "no" and "yes"
+bank_test = rbind(test_no, test_yes)
+
+# remove bservations with "unknown" in the "Loan" variable
+bank_train = bank_train[-(which(bank_train$loan=="unknown")), ]
+bank_train = bank_train[-(which(bank_train$default=="yes")), ]
+
+# upsampling training dataset
+bank_train_upsample <- upSample(x = bank_train[, -ncol(bank_train)], y = as.factor(bank_train$y))
+colnames(bank_train_upsample)[21] <- "y"
+summary(bank_train_upsample$y)
+
+# remove bservations with "unknown" in the "Loan" variable
+#bank_train_upsample = bank_train_upsample[-(which(bank_train_upsample$loan=="unknown")), ]
+
+# remove bservations with "unknown" in the "Loan" variable
+bank_test = bank_test[-(which(bank_test$loan=="unknown")), ]
+bank_test = bank_test[-(which(bank_test$default=="yes")), ]
+
+model.main<-glm(y ~ . , data=bank_train_upsample,family = binomial(link="logit"))
+(vif(model.main)[,3])^2
+
+## Below variables has VIF more than 10 
+## nr.employed - 145.027646
+## euribor3m    - 144.159591
+## emp.var.rate - 132.439592
+## cons.price.idx - 55.437501
+
+model.main1<-glm(y ~ age+job+marital+education+default+housing+loan+contact+month+day_of_week+duration+campaign+pdays+previous+poutcome+ cons.conf.idx, data=bank_train_upsample,family = binomial(link="logit"))
+
+(vif(model.main1)[,3])^2
+summary(model.main1)
+
+exp(cbind("Odds ratio" = coef(model.main1), confint.default(model.main1, level = 0.95)))
+
+```
+
+### Observations:
+#### Balanced Dataset: LDA with all variables for upsampled dataset can get an accuracy of 85.6%.
+
+```{r LDA_new, echo=TRUE}
+### LDA with all continous variables
+
+bank_upsample_con <- bank_train_upsample %>% dplyr::select(age, duration,campaign,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed,y) 
+bank_test_con <- bank_test %>% dplyr::select(age, duration,campaign,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed,y)
+
+
+mylda_new <- lda(bank_upsample_con$y ~ . , data = bank_upsample_con)
+
+x1=table(predict(mylda_new, type="class")$class, bank_upsample_con$y)
+
+x1_con <- confusionMatrix(x1)
+x1_con
+
+x1_con$overall[1]
+x1_con$byClass[1]
+x1_con$byClass[2]
+
+pred_lda <- predict(mylda_new, bank_upsample_con, type = "response")$posterior
+pred_lda <- as.data.frame(pred_lda)
+
+pred_lda_train <- prediction(pred_lda[,2],bank_upsample_con$y)
+
+roc.perf2 = performance(pred_lda_train, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred_lda_train, measure = "auc")
+auc.train <- auc.train@y.values
+
+# Test group confusion metric statistics
+x2=table(predict(mylda_new, bank_test_con, type="class")$class, bank_test$y)
+
+x2_con <- confusionMatrix(x2)
+x2_con
+
+x2_con$overall[1]
+x2_con$byClass[1]
+x2_con$byClass[2]
+
+pred_ldanew <- predict(mylda_new, bank_test_con, type = "response")$posterior
+pred_ldanew <- as.data.frame(pred_ldanew)
+
+pred_ldanew_test <- prediction(pred_ldanew[,2],bank_test_con$y)
+
+roc.perf3 = performance(pred_ldanew_test, measure = "tpr", x.measure = "fpr")
+auc.test <- performance(pred_ldanew_test, measure = "auc")
+auc.test <- auc.test@y.values
+
+plot(roc.perf2)
+plot(roc.perf3,col="orange", add = TRUE)
+legend("bottomright",legend=c("Train","Test"),col=c("black","orange"),lty=1,lwd=1)
+abline(a=0, b= 1)
+#text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+text(x = .40, y = .6,paste("AUC = ", round(auc.test[[1]],3), sep = ""))
+
+```
+
+```{r LDA_new log transform, echo=TRUE}
+### LDA with all variables
+
+bank_train_upsample_clean = bank_upsample_con[!is.infinite(log(bank_upsample_con$duration)),]
+
+mylda_new2_log <- lda(bank_train_upsample_clean$y ~ log(age) + log(duration) + log(campaign) + previous + emp.var.rate + cons.price.idx+ cons.conf.idx+ euribor3m+ nr.employed, data = bank_train_upsample_clean)
+
+x1=table(predict(mylda_new2_log, type="class")$class, bank_train_upsample_clean$y)
+
+x1_con <- confusionMatrix(x1)
+x1_con
+
+x1_con$overall[1]
+x1_con$byClass[1]
+x1_con$byClass[2]
+
+pred_lda_log <- predict(mylda_new2_log, bank_train_upsample_clean, type = "response")$posterior
+pred_lda_log <- as.data.frame(pred_lda_log)
+
+pred_lda_log_train <- prediction(pred_lda_log[,2],bank_train_upsample_clean$y)
+
+roc.perflog = performance(pred_lda_log_train, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred_lda_log_train, measure = "auc")
+auc.train <- auc.train@y.values
+
+# Test group confusion metric statistics
+x2=table(predict(mylda_new2_log, bank_test, type="class")$class, bank_test$y)
+
+x2_con <- confusionMatrix(x2)
+x2_con
+
+x2_con$overall[1]
+x2_con$byClass[1]
+x2_con$byClass[2]
+
+pred_lda_log2 <- predict(mylda_new2_log, bank_test, type = "response")$posterior
+pred_lda_log2 <- as.data.frame(pred_lda_log2)
+
+pred_lda_log_test <- prediction(pred_lda_log2[,2],bank_test$y)
+
+roc.perflog_test = performance(pred_lda_log_test, measure = "tpr", x.measure = "fpr")
+#auc.train <- performance(roc.perflog_test, measure = "auc")
+#auc.train <- auc.train@y.values
+
+plot(roc.perflog)
+plot(roc.perflog_test,col="orange", add = TRUE)
+legend("bottomright",legend=c("Train","Test"),col=c("black","orange"),lty=1,lwd=1)
+abline(a=0, b= 1)
+#text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+text(x = .40, y = .6,paste("AUC = ", round(auc.test[[1]],3), sep = ""))
+
+
+plot(roc.perf_ldanew2_test)
+plot(roc.perflog_test,col="orange", add = TRUE)
+legend("bottomright",legend=c("LDA Before Log","LDA After Log"),col=c("black","orange"),lty=1,lwd=1)
+abline(a=0, b= 1)
+
+```
+
+### QDA with selected continuous variables from upsampled dataset give an accuracy of 82.2%.
+
+```{r QDA_new, echo=TRUE}
+
+
+myqda_new <- qda(bank_upsample_con$y ~ . , data = bank_upsample_con)
+
+x1=table(predict(myqda_new, type="class")$class, bank_upsample_con$y)
+
+x1_con <- confusionMatrix(x1)
+x1_con
+
+x1_con$overall[1]
+x1_con$byClass[1]
+x1_con$byClass[2]
+
+# Test group confusion metric statistics
+x2=table(predict(myqda_new, bank_test, type="class")$class, bank_test$y)
+
+x2_con <- confusionMatrix(x2)
+x2_con
+
+x2_con$overall[1]
+x2_con$byClass[1]
+x2_con$byClass[2]
+
+pred_qdanew <- predict(myqda_new, bank_test, type = "response")$posterior
+pred_qdanew <- as.data.frame(pred_qdanew)
+
+pred_qdanew_test <- prediction(pred_qdanew[,2],bank_test$y)
+
+roc.perf_qdanew_test = performance(pred_qdanew_test, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred_qdanew_test, measure = "auc")
+auc.train <- auc.train@y.values
+
+plot(roc.perf_qdanew_test)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+
+```
+
+### QDA with selected continuous variables from upsampled dataset give an accuracy of 86.7%.
+### QDA not perform better than LDA.
+```{r}
+
+myqda_new_log <- qda(bank_train_upsample_clean$y ~ log(age) + log(duration) + log(campaign) + previous + emp.var.rate + cons.price.idx+ cons.conf.idx+ euribor3m+ nr.employed, data = bank_train_upsample_clean)
+
+# Test group confusion metric statistics
+x2=table(predict(myqda_new_log, bank_test, type="class")$class, bank_test$y)
+
+x2_con <- confusionMatrix(x2)
+x2_con
+
+x2_con$overall[1]
+x2_con$byClass[1]
+x2_con$byClass[2]
+
+pred_qdanew_log <- predict(myqda_new_log, bank_test, type = "response")$posterior
+pred_qdanew_log <- as.data.frame(pred_qdanew_log)
+
+pred_qdanew_log_test <- prediction(pred_qdanew_log[,2],bank_test$y)
+
+roc.perf_qdanew_log_test = performance(pred_qdanew_log_test, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred_qdanew_log_test, measure = "auc")
+auc.train <- auc.train@y.values
+
+plot(roc.perf_qdanew_test)
+plot(roc.perf_qdanew_log_test,col="orange", add = TRUE)
+plot(roc.perf_ldanew2_test,col="blue", add = TRUE)
+legend("bottomright",legend=c("QDA Before Log","QDA After Log","LDA Before Log"),col=c("black","orange","blue"),lty=1,lwd=1)
+abline(a=0, b= 1)
+
+```
+
+#### KNN model 
+
+```{r}
+library(class)
+
+bank_train_upsample_cons <- bank_train_upsample %>% dplyr::select(age, duration,campaign,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed)
+
+bank_test_cons <- bank_test %>% dplyr::select(age, duration,campaign,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed)
+
+model_knn = class::knn(bank_train_upsample_cons,bank_test_cons,bank_train_upsample$y, prob = TRUE, k = 3)
+table(model_knn,bank_test$y)
+CM_knn = confusionMatrix(table(model_knn,bank_test$y))
+CM_knn
+
+```
+#### The chosen best KNN model is with k=5
+
+```{r}
+library(caret)
+iterations = 10
+numks = 20
+
+masterAcc = matrix(nrow = iterations, ncol = numks)
+masterSen = matrix(nrow = iterations, ncol = numks)
+masterSpe = matrix(nrow = iterations, ncol = numks)
+  
+for(j in 1:iterations)
+{
+accs = data.frame(accuracy = numeric(10), k = numeric(10))
+for(i in 1:numks)
+{
+  classifications = knn(bank_train_upsample_con,bank_test_con,bank_train_upsample$y, prob = TRUE, k = i)
+  table(classifications,bank_test$y)
+  CM = confusionMatrix(table(classifications,bank_test$y))
+  masterAcc[j,i] = CM$overall[1]
+  masterSen[j,i] = CM$byClass[1]
+  masterSpe[j,i] = CM$byClass[2]
+}
+
+}
+
+MeanAcc = colMeans(masterAcc)
+
+plot(seq(1,numks,1),MeanAcc, type = "l")
+
+MeanSen = colMeans(masterSen)
+
+plot(seq(1,numks,1),MeanSen, type = "l")
+
+MeanSpe = colMeans(masterSpe)
+
+plot(seq(1,numks,1),MeanSpe, type = "l")
+```
+
+```{r}
+model_knn5 = class::knn(bank_train_upsample_cons,bank_test_cons,bank_train_upsample$y, prob = FALSE, k = 5)
+table(model_knn5,bank_test$y)
+CM_knn5 = confusionMatrix(table(model_knn5,bank_test$y))
+CM_knn5
+```
+
+#### Random Forest model 
+#### With Unbalanced Data (All continous)
+
+```{r}
+library(randomForest)
+bank_train_con <- bank_train %>% dplyr::select(age, duration,campaign,previous,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed)
+
+## Classification Method: RandomForest
+model_rf = randomForest(bank_train_con,as.factor(bank_train$y),ntree=500)
+CM_rf = confusionMatrix(table(predict(model_rf,bank_test_con),bank_test$y))
+CM_rf
+
+## But random forest can provide with feature importance
+varImpPlot(model_rf)
+```
+
+#### With balanced Data (All continous)
+
+```{r}
+
+## Classification Method: RandomForest
+model_rf2 = randomForest(bank_train_upsample_con,as.factor(bank_train_upsample$y),ntree=500)
+CM_rf2 = confusionMatrix(table(predict(model_rf2,bank_test_con),bank_test$y))
+CM_rf2
+
+## But random forest can provide with feature importance
+varImpPlot(model_rf2)
+
+
+fit.pred<-predict(model_rf2,newdata=bank_test_con,type="prob")
+
+pred <- prediction(fit.pred[,2], bank_test$y)
+roc.perf_rf2 = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
+plot(roc.perf_rf2)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+```
+
+#### With balanced Data (All variables)
+
+```{r}
+bank_train_upsample_rf <-  bank_train_upsample
+
+# Make dependent variable as a factor (categorical)
+bank_train_upsample_rf$job = as.factor(bank_train_upsample_rf$job)
+bank_train_upsample_rf$marital = as.factor(bank_train_upsample_rf$marital)
+bank_train_upsample_rf$education = as.factor(bank_train_upsample_rf$education)
+bank_train_upsample_rf$default = as.factor(bank_train_upsample_rf$default)
+bank_train_upsample_rf$housing = as.factor(bank_train_upsample_rf$housing)
+bank_train_upsample_rf$loan = as.factor(bank_train_upsample_rf$loan)
+bank_train_upsample_rf$contact = as.factor(bank_train_upsample_rf$contact)
+bank_train_upsample_rf$month = as.factor(bank_train_upsample_rf$month)
+bank_train_upsample_rf$day_of_week = as.factor(bank_train_upsample_rf$day_of_week)
+bank_train_upsample_rf$poutcome = as.factor(bank_train_upsample_rf$poutcome)
+
+bank_test_rf <-  bank_test
+
+# Make dependent variable as a factor (categorical)
+bank_test_rf$job = as.factor(bank_test$job)
+bank_test_rf$marital = as.factor(bank_test$marital)
+bank_test_rf$education = as.factor(bank_test$education)
+bank_test_rf$default = as.factor(bank_test$default)
+bank_test_rf$housing = as.factor(bank_test$housing)
+bank_test_rf$loan = as.factor(bank_test$loan)
+bank_test_rf$contact = as.factor(bank_test$contact)
+bank_test_rf$month = as.factor(bank_test$month)
+bank_test_rf$day_of_week = as.factor(bank_test$day_of_week)
+bank_test_rf$poutcome = as.factor(bank_test$poutcome)
+
+
+## Classification Method: RandomForest
+model_rf_all = randomForest(bank_train_upsample_rf[,1:20],as.factor(bank_train_upsample$y),ntree=500)
+CM_rf_all = confusionMatrix(table(predict(model_rf_all,bank_test_rf[,1:20]),bank_test$y))
+CM_rf_all
+
+## But random forest can provide with feature importance
+varImpPlot(model_rf_all)
+
+
+fit.pred<-predict(model_rf_all,newdata=bank_test_rf[,1:20],type="prob")
+
+pred <- prediction(fit.pred[,2], bank_test$y)
+roc.perf_rf3 = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
+plot(roc.perf_rf3)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+```
+
+#### With balanced Data (Variables chosen)
+
+```{r}
+
+bank_upsample_select <- bank_train_upsample_rf %>% dplyr::select(c('age', 'duration', 'campaign', 'pdays', 'previous',  'cons.price.idx', 'cons.conf.idx','euribor3m','y'))
+bank_test_select <- bank_test_rf %>% dplyr::select(c('age', 'duration', 'campaign', 'pdays', 'previous',  'cons.price.idx', 'cons.conf.idx','euribor3m','y'))
+
+## Classification Method: RandomForest
+model_rf_sel = randomForest(bank_upsample_select[,1:8],as.factor(bank_upsample_select$y),ntree=500)
+CM_rf_sel = confusionMatrix(table(predict(model_rf_sel,bank_test_select[,1:8]),bank_test_select$y))
+CM_rf_sel
+
+## But random forest can provide with feature importance
+varImpPlot(model_rf_sel)
+
+fit.pred<-predict(model_rf_sel,newdata=bank_test_select[,1:8],type="prob")
+
+pred <- prediction(fit.pred[,2], bank_test_select$y)
+roc.perf_rf4 = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
+plot(roc.perf_rf4)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+```
+
+
+#### ROCs comparisons across different random forest results
+
+```{r}
+plot(roc.perf_rf2)
+plot(roc.perf_rf3,col="orange", add = TRUE)
+plot(roc.perf_rf4,col="blue", add = TRUE)
+legend("bottomright",legend=c("RF1","RF2","RF3"),col=c("black","orange","blue"),lty=1,lwd=1)
+abline(a=0, b= 1)
+```
+
+###Logistic regression
+
+#### Balaji's model for Objective 1
+```{r}
+model.main1<-glm(y ~ age+job+marital+education+contact+month+housing+loan+day_of_week+duration+campaign+pdays+previous+poutcome+ cons.conf.idx, data=bank_train_upsample,family = binomial(link="logit"))
+
+bal.pred_probs <- predict(model.main1, bank_test, type="response")
+bal.pred_yns <- factor(ifelse(bal.pred_probs>0.5, "yes", "no"))
+bal.cm <- confusionMatrix(table(bal.pred_yns, bank_test$y))
+
+bal.cm
+
+#fit.pred<-predict(model.main1,newdata=bank_test,type="prob")
+
+pred <- prediction(bal.pred_probs, bank_test$y)
+roc.perf_lr = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
+plot(roc.perf_lr)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+
+```
+
+#### Tina's model with interaction terms
+```{r}
+model.test<-glm(y ~ duration * nr.employed + month + poutcome + emp.var.rate +
+                  cons.price.idx + job + contact + euribor3m + default + day_of_week +
+                  pdays + campaign + cons.conf.idx +
+      duration*nr.employed +
+      duration*poutcome +
+        duration *  emp.var.rate +
+        duration * cons.price.idx +
+        duration * job +
+        duration * euribor3m +
+        duration * cons.conf.idx +
+     nr.employed * emp.var.rate +
+     nr.employed * euribor3m +
+    nr.employed * campaign +
+    nr.employed * cons.conf.idx +
+          month * cons.price.idx +
+          month * job +
+          month * contact +
+          month * default +
+          month * campaign +
+       poutcome * emp.var.rate +
+       poutcome * job +
+       poutcome * euribor3m +
+       poutcome * pdays +
+       poutcome * cons.conf.idx +
+   emp.var.rate * euribor3m +
+   emp.var.rate * campaign +
+   emp.var.rate * cons.conf.idx +
+cons.price.idx * contact +
+cons.price.idx * pdays +
+cons.price.idx * cons.conf.idx +
+      euribor3m * campaign +
+      euribor3m * cons.conf.idx +
+        default * pdays +
+        default * campaign +
+        default * cons.conf.idx, data=bank_train_upsample, family="binomial")
+
+bal.pred_probs <- predict(model.test, bank_test, type="response")
+pred <- prediction(bal.pred_probs, bank_test$y)
+roc.perf_lr2 = performance(pred, measure = "tpr", x.measure = "fpr")
+```
+
+#### ROCs comparisons across different methods
+```{r}
+plot(roc.perf1)
+plot(roc.perf_rf3,col="orange", add = TRUE)
+plot(roc.perf_lr,col="blue", add = TRUE)
+plot(roc.perf_lr2,col="red", add = TRUE)
+legend("bottomright",legend=c("LDA","Random Forest","Logistic Regress","lr2"),col=c("black","orange","blue","red"),lty=1,lwd=1)
+abline(a=0, b= 1)
+
+```
