@@ -164,6 +164,23 @@ down_size <- downSample(x = bank[, -ncol(bank)], y = bank$y)
 colnames(down_size)[21] <- "y"
 table(down_size$y)
 
+#interaction plots
+for(i in 1:dim(interactions)[1]) {
+  
+  #barplot of two variables blocked on y/n
+  print(bank %>%
+          ggplot(aes(y=eval(parse(text = interactions$var_1[i])), x=eval(parse(text = interactions$var_2[i])), color = y)) +
+          geom_boxplot()+
+          xlab(interactions$var_2[i]) +
+          ylab(interactions$var_1[i]) +
+          ggtitle("Distribution of ")
+  )
+  
+  #summary of p value of interaction term
+  model<-glm(y ~ eval(parse(text=interactions$var_1[i])) * eval(parse(text=interactions$var_2[i])), data=down_size,family = binomial(link="logit"))
+  print(summary(model))
+}
+
 #duration*nr.employed looks significant
 model.main<-glm(y ~ duration * nr.employed, data=down_size,family = binomial(link="logit"))
 summary(model.main)
@@ -515,6 +532,28 @@ bank %>%
   geom_boxplot()
 model<-glm(y ~ euribor3m * contact, data=down_size,family = binomial(link="logit"))
 summary(model)
+
+
+
+model.main<-glm(y ~ duration * nr.employed + month + poutcome + emp.var.rate + 
+                  cons.price.idx + job + contact + euribor3m + default + day_of_week + 
+                  pdays + campaign + cons.conf.idx, data=bank,family = binomial(link="logit"))
+
+
+
+
+df <- rbind(data.frame(predictor = predict(model.interaction1, bank),
+                       known.truth = bank$y,
+                       model = "Complex Model"),
+            data.frame(predictor = predict(model.main, bank),
+                       known.truth = bank$y,
+                       model = "Simple Model"))
+
+ggroc <- ggplot(df, aes(d = known.truth, m = predictor, color = model)) + 
+  geom_roc(n.cuts = 0) + geom_abline(intercept = 0, slope = 1, linetype='dashed') 
+
+ggroc
+calc_auc(ggroc)
 
 #OLD DUMP
 
