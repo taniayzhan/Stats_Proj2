@@ -273,8 +273,7 @@ for(i in thresholds){
   print(i)
   m <- get_test_metrics(bank, y ~ duration * nr.employed + month + poutcome + emp.var.rate + 
                   cons.price.idx + job + contact + euribor3m + default + day_of_week + 
-                  pdays + campaign + cons.conf.idx +
-      duration*nr.employed +
+                  pdays + campaign + cons.conf.idx + duration*nr.employed +
       duration*poutcome +
         duration *  emp.var.rate +
         duration * cons.price.idx +
@@ -305,7 +304,7 @@ for(i in thresholds){
       euribor3m * cons.conf.idx +
         default * pdays +
         default * campaign +
-        default * cons.conf.idx, i, 2)
+        default * cons.conf.idx, i)
   accs <- c(accs, m$Accuracy)
   sens <- c(sens, m$Sensitivity)
   specs <- c(specs, m$Specificity)

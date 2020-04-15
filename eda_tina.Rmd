@@ -44,6 +44,10 @@ interactions <- interaction_df %>%
   mutate(var_2 = as.character(var_2))
 ```
 
+```{r}
+print(interactions)
+```
+
 Interaction Plots
 
 ```{r interactionplots}
@@ -55,12 +59,12 @@ for(i in 1:dim(interactions)[1]) {
     ggplot(aes(y=eval(parse(text = interactions$var_1[i])), x=eval(parse(text = interactions$var_2[i])), color = y)) +
     geom_boxplot()+
     xlab(interactions$var_2[i]) +
-    ylab(interactions$var_2[i]) +
+    ylab(interactions$var_1[i]) +
     ggtitle("Distribution of ")
   )
   
   #summary of p value of interaction term
-  model<-glm(y ~ interactions$var_1[i] * interactions$var_2[i], data=down_size,family = binomial(link="logit"))
+  model<-glm(y ~ eval(parse(text=interactions$var_1[i])) * eval(parse(text=interactions$var_2[i])), data=down_size,family = binomial(link="logit"))
   print(summary(model))
 }
 ```
@@ -104,6 +108,73 @@ model.interaction1 <- glm(y ~ duration * nr.employed + month + poutcome + emp.va
         default * cons.conf.idx, data=bank, family="binomial")
 ```
 
+Make functions for cross validation
+```{r cv, echo=FALSE}
+#--- CROSS VALIDATION SETUP ---
+
+#creates a train test split with upsampling train data for balance
+split_train_test <- function(bankdata) {
+  # dataset with "no"
+  bankdata_no = bankdata[which(bankdata$y=="no"),]
+  # dataset with "yes"
+  bankdata_yes = bankdata[which(bankdata$y=="yes"),]
+  
+  splitPerc = .7 #Training / Test split Percentage
+  
+  # Training / Test split of "no" dataset
+  noIndices = sample(1:dim(bankdata_no)[1],round(splitPerc * dim(bankdata_no)[1]))
+  train_no = bankdata_no[noIndices,]
+  test_no = bankdata_no[-noIndices,]
+  
+  # Training / Test split of "yes" dataset
+  yesIndices = sample(1:dim(bankdata_yes)[1],round(splitPerc * dim(bankdata_yes)[1]))
+  train_yes = bankdata_yes[yesIndices,]
+  test_yes = bankdata_yes[-yesIndices,]
+  
+  # Combine training "no" and "yes"
+  bank_train = rbind(train_no, train_yes)
+  
+  # Combine test "no" and "yes"
+  bank_test = rbind(test_no, test_yes)
+  
+  # upsampling training dataset
+  bank_train_upsample <- upSample(x = bank_train[, -ncol(bank_train)], y = bank_train$y)
+  colnames(bank_train_upsample)[21] <- "y"
+  summary(bank_train_upsample$y)
+  
+  return(list(bank_train_upsample, bank_test))
+}
+
+#gives the average accuracy, sensitivity, and specificity over 5 train-test splits
+#for logistic regression model
+get_test_metrics <- function(data, formula, thresh){
+  accuracies <- c()
+  sensitivities <- c()
+  specificities <- c()
+  for(i in 1:2){
+    split_data <- split_train_test(data)
+    train <- split_data[[1]]
+    test <- split_data[[2]]
+    
+    model <- glm(formula, data=train,family = binomial(link="logit"))
+    pred_probs <- predict(model, test, type="response")
+    pred_yns <- factor(ifelse(pred_probs>thresh, "yes", "no"))
+    
+    cm <- confusionMatrix(table(pred_yns, test$y))
+    accuracies <- c(accuracies, cm$overall[1])
+    sensitivities <- c(sensitivities, cm$byClass[1])
+    specificities <- c(specificities, cm$byClass[2])
+  }
+  acc = mean(accuracies)
+  sens = mean(sensitivities)
+  specs = mean(specificities)
+  result = list(acc, sens, specs)
+  names(result) = c("Accuracy", "Sensitivity", "Specificity")
+  return(result)
+}
+
+```
+
 see thresholds for the model
 ```{r}
 #finding the best threshold for yes/no
@@ -116,7 +187,7 @@ for(i in thresholds){
   print(i)
   m <- get_test_metrics(bank, y~duration + nr.employed + month + poutcome + emp.var.rate + 
                                   cons.price.idx + job + contact + euribor3m + default + day_of_week + 
-                                  pdays + campaign + cons.conf.idx, i, 2)
+                                  pdays + campaign + cons.conf.idx, i)
   accs <- c(accs, m$Accuracy)
   sens <- c(sens, m$Sensitivity)
   specs <- c(specs, m$Specificity)
