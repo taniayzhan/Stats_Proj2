@@ -196,6 +196,18 @@ for(i in thresholds){
 accs
 sens
 specs
+
+
+metrics <- data.frame(thresholds,accs,sens,specs)
+metrics_long <- metrics %>%
+  gather(key=metric, percent, accs:specs)
+
+#plot the accuracy, sensitivity, and specificity over the thresholds; between .1-.2 seems decent to me
+metrics_long %>%
+  ggplot(aes(x=thresholds, y=percent, color = metric)) +
+  geom_point() +
+  ggtitle("Accuracy, Sensitivity, and Specificity at Thresholds")
+
 ```
 
 
